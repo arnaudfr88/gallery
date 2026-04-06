@@ -1,5 +1,22 @@
+/*
+ * Copyright 2025 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.google.ai.edge.gallery.server
 
+import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.server.dto.ChatCompletionChunk
 import com.google.ai.edge.gallery.server.dto.ChatCompletionRequest
@@ -11,6 +28,12 @@ import com.google.ai.edge.gallery.server.dto.ModelListResponse
 import com.google.ai.edge.gallery.server.dto.ModelResponse
 import com.google.ai.edge.gallery.service.ModelManagerAccessor
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
+import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.ConversationConfig
+import com.google.ai.edge.litertlm.ExperimentalFlags
+import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.SamplerConfig
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -32,6 +55,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -90,6 +114,29 @@ class OpenAIApiServer(
               val channel = Channel<String>(Channel.BUFFERED)
 
               CoroutineScope(Dispatchers.Default).launch {
+                val history = request.messages.dropLast(1)
+                val systemMessage = request.messages.firstOrNull { it.role == "system" }
+                val initialMessages = history
+                  .filter { it.role != "system" }
+                  .map {
+                    when (it.role) {
+                      "user" -> Message.user(it.content)
+                      "assistant" -> Message.model(it.content)
+                      else -> Message.user(it.content)
+                    }
+                  }
+
+                LlmChatModelHelper.newConversation(
+                  model = model,
+                  supportImage = model.llmSupportImage,
+                  supportAudio = model.llmSupportAudio,
+                  systemInstruction = systemMessage?.let { Contents.of(Content.Text(it.content)) },
+                  initialMessages = initialMessages,
+                  tools = listOf(),
+                  enableConversationConstrainedDecoding = false
+                )
+                delay(500)
+
                 LlmChatModelHelper.runInference(
                   model = model,
                   input = userInput,
@@ -144,6 +191,29 @@ class OpenAIApiServer(
           } else {
             val fullResponse = CompletableDeferred<String>()
             val buffer = StringBuilder()
+
+            val history = request.messages.dropLast(1)
+            val systemMessage = request.messages.firstOrNull { it.role == "system" }
+            val initialMessages = history
+              .filter { it.role != "system" }
+              .map {
+                when (it.role) {
+                  "user" -> Message.user(it.content)
+                  "assistant" -> Message.model(it.content)
+                  else -> Message.user(it.content)
+                }
+              }
+
+            LlmChatModelHelper.newConversation(
+              model = model,
+              supportImage = model.llmSupportImage,
+              supportAudio = model.llmSupportAudio,
+              systemInstruction = systemMessage?.let { Contents.of(Content.Text(it.content)) },
+              initialMessages = initialMessages,
+              tools = listOf(),
+              enableConversationConstrainedDecoding = false
+            )
+            delay(500)
 
             LlmChatModelHelper.runInference(
               model = model,
