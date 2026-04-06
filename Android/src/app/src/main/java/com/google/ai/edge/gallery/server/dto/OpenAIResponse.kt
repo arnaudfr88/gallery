@@ -1,10 +1,14 @@
 package com.google.ai.edge.gallery.server.dto
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 @Serializable
+@OptIn(ExperimentalSerializationApi::class)
 data class ChatCompletionResponse(
   val id: String,
+  @EncodeDefault
   val `object`: String = "chat.completion",
   val created: Long,
   val model: String,
@@ -27,8 +31,10 @@ data class Delta(
 
 // SSE Stream Chunk
 @Serializable
+@OptIn(ExperimentalSerializationApi::class)
 data class ChatCompletionChunk(
   val id: String,
+  @EncodeDefault
   val `object`: String = "chat.completion.chunk",
   val created: Long,
   val model: String,
@@ -36,15 +42,20 @@ data class ChatCompletionChunk(
 )
 
 @Serializable
+@OptIn(ExperimentalSerializationApi::class)
 data class ModelListResponse(
+    @EncodeDefault
     val `object`: String = "list",
     val data: List<ModelResponse>
 )
 
 @Serializable
+@OptIn(ExperimentalSerializationApi::class)
 data class ModelResponse(
     val id: String,
+    @EncodeDefault
     val `object`: String = "model",
     val created: Long,
+    @EncodeDefault
     val owned_by: String = "local"
 )
