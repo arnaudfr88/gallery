@@ -19,6 +19,7 @@ package com.google.ai.edge.gallery
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.google.ai.edge.gallery.service.AppStateHolder
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.navigation.GalleryNavHost
 
@@ -27,6 +28,11 @@ import com.google.ai.edge.gallery.ui.navigation.GalleryNavHost
 fun GalleryApp(
   navController: NavHostController = rememberNavController(),
   modelManagerViewModel: ModelManagerViewModel,
+  appStateHolder: AppStateHolder,
 ) {
-  GalleryNavHost(navController = navController, modelManagerViewModel = modelManagerViewModel)
+  GalleryNavHost(
+    navController = navController,
+    modelManagerViewModel = modelManagerViewModel,
+    appStateHolder = appStateHolder,
+  )
 }

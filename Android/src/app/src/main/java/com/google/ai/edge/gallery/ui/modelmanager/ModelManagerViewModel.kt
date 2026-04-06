@@ -52,6 +52,7 @@ import com.google.ai.edge.gallery.data.createLlmChatConfigs
 import com.google.ai.edge.gallery.proto.AccessTokenData
 import com.google.ai.edge.gallery.proto.ImportedModel
 import com.google.ai.edge.gallery.proto.Theme
+import com.google.ai.edge.gallery.service.ModelManagerAccessor
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -1317,6 +1318,20 @@ constructor(
         )
 
     return downloadedFileExists || unzippedDirectoryExists
+  }
+
+  fun asAccessor(): ModelManagerAccessor {
+    return object : ModelManagerAccessor {
+      override fun getDownloadedModelNames(): List<String> {
+        return uiState.value.modelDownloadStatus
+          .filter { it.value.status == ModelDownloadStatusType.SUCCEEDED }
+          .keys
+          .toList()
+      }
+      override fun getModelByName(name: String): Model? {
+        return this@ModelManagerViewModel.getModelByName(name)
+      }
+    }
   }
 }
 

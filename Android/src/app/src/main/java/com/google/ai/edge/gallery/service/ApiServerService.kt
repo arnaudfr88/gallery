@@ -1,0 +1,87 @@
+package com.google.ai.edge.gallery.service
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.os.IBinder
+import androidx.core.app.NotificationCompat
+import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.server.OpenAIApiServer
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+
+@AndroidEntryPoint
+class ApiServerService : Service() {
+
+  private var apiServer: OpenAIApiServer? = null
+
+  @Inject
+  lateinit var appStateHolder: AppStateHolder
+
+  override fun onCreate() {
+    super.onCreate()
+    startForeground(NOTIFICATION_ID, buildNotification())
+  }
+
+  override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    val port = intent?.getIntExtra("port", 8080) ?: 8080
+
+    if (apiServer == null) {
+      val manager = appStateHolder.manager
+      if (manager != null) {
+        apiServer = OpenAIApiServer(
+          modelManager = manager,
+          port = port,
+        )
+        apiServer?.start()
+      }
+    }
+
+    return START_STICKY
+  }
+
+  override fun onDestroy() {
+    apiServer?.stop()
+    apiServer = null
+    super.onDestroy()
+  }
+
+  override fun onBind(intent: Intent?): IBinder? = null
+
+  private fun buildNotification(): Notification {
+    val channelId = "api_server"
+    val channelName = "API Server"
+    val notificationManager = getSystemService(NotificationManager::class.java)
+
+    val channel = NotificationChannel(
+      channelId,
+      channelName,
+      NotificationManager.IMPORTANCE_LOW,
+    )
+    notificationManager.createNotificationChannel(channel)
+
+    return NotificationCompat.Builder(this, channelId)
+      .setContentTitle("AI Edge Gallery API Server")
+      .setContentText("Running on port 8080")
+      .setSmallIcon(R.drawable.ic_launcher_foreground)
+      .setOngoing(true)
+      .build()
+  }
+
+  companion object {
+    const val NOTIFICATION_ID = 1001
+
+    fun start(context: Context, port: Int = 8080) {
+      val intent = Intent(context, ApiServerService::class.java)
+        .putExtra("port", port)
+      context.startForegroundService(intent)
+    }
+
+    fun stop(context: Context) {
+      context.stopService(Intent(context, ApiServerService::class.java))
+    }
+  }
+}

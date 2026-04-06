@@ -109,6 +109,16 @@ dependencies {
   implementation(libs.firebase.messaging)
   implementation(libs.androidx.exifinterface)
   implementation(libs.moshi.kotlin)
+
+  implementation(libs.kotlinx.coroutines.core)
+  implementation(libs.kotlinx.coroutines.android)
+
+  // Ktor Server
+  implementation(libs.ktor.server.core)
+  implementation(libs.ktor.server.cio)
+  implementation(libs.ktor.server.content.negotiation)
+  implementation(libs.ktor.serialization.kotlinx.json)
+
   kapt(libs.hilt.android.compiler)
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
