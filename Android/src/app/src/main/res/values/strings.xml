@@ -401,4 +401,12 @@
   <!-- Content description spoken when the "menu" icon is focused. [CHAR_LIMIT=NONE] -->
   <string name="cd_menu">Menu</string>
 
+  <!-- ChatCompletion as Server -->
+  <string name="server_cc_back_confirm_title">Confirm stop server</string>
+  <string name="server_cc_back_confirm_text">Back will unload the model, which will render the Server API unusable, and the Server will also stop.</string>
+  <string name="server_cc_status_title">OpenAI API Server Status</string>
+  <string name="server_cc_btn_stop">Stop Server</string>
+  <string name="server_cc_btn_start">Start Server</string>
+  <string name="server_cc_status_stopped">Stopped</string>
+  <string name="server_cc_status_running">Running on port %1$d</string>
 </resources>
