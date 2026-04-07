@@ -24,13 +24,13 @@ Supported request fields
 - ❌ frequency_penalty
 - ❌ presence_penalty
 - ❌ response_format
-- ❌ seed
+- ✅ seed
 - ❌ stop
 - ✅ stream
 - ❌ stream_options
 - ❌ include_usage
-- ❌ temperature
-- ❌ top_p
+- ✅ temperature
+- ✅ top_p
 - ❌ max_tokens
 - ❌ tools
 - ❌ reasoning_effort ("high", "medium", "low", "none")

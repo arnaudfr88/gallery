@@ -28,6 +28,9 @@ fun LlmChatModelHelper.newConversation(
   initialMessages: List<Message>,
   tools: List<ToolProvider>,
   enableConversationConstrainedDecoding: Boolean,
+  temperature: Float? = null,
+  topP: Float? = null,
+  seed: Int? = null,
 ) {
   try {
     Log.d(TAG, "Renew conversation for model '${model.name}'")
@@ -37,9 +40,9 @@ fun LlmChatModelHelper.newConversation(
 
     val engine = instance.engine
     val topK = model.getIntConfigValue(key = ConfigKeys.TOPK, defaultValue = DEFAULT_TOPK)
-    val topP = model.getFloatConfigValue(key = ConfigKeys.TOPP, defaultValue = DEFAULT_TOPP)
-    val temperature =
-      model.getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
+    val finalTopP = topP ?: model.getFloatConfigValue(key = ConfigKeys.TOPP, defaultValue = DEFAULT_TOPP)
+    val finalTemperature =
+      temperature ?: model.getFloatConfigValue(key = ConfigKeys.TEMPERATURE, defaultValue = DEFAULT_TEMPERATURE)
     val shouldEnableImage = supportImage
     val shouldEnableAudio = supportAudio
     Log.d(TAG, "Enable image: $shouldEnableImage, enable audio: $shouldEnableAudio")
@@ -60,8 +63,9 @@ fun LlmChatModelHelper.newConversation(
             } else {
               SamplerConfig(
                 topK = topK,
-                topP = topP.toDouble(),
-                temperature = temperature.toDouble(),
+                topP = finalTopP.toDouble(),
+                temperature = finalTemperature.toDouble(),
+                seed = seed ?: 0,
               )
             },
           systemInstruction = systemInstruction,

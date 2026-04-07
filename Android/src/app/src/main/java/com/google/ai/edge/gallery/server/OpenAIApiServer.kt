@@ -137,7 +137,10 @@ class OpenAIApiServer(
                   systemInstruction = systemMessage?.let { Contents.of(Content.Text(it.content)) },
                   initialMessages = initialMessages,
                   tools = listOf(),
-                  enableConversationConstrainedDecoding = false
+                  enableConversationConstrainedDecoding = false,
+                  temperature = request.temperature,
+                  topP = request.top_p,
+                  seed = request.seed,
                 )
                 delay(500)
 
@@ -229,7 +232,10 @@ class OpenAIApiServer(
               systemInstruction = systemMessage?.let { Contents.of(Content.Text(it.content)) },
               initialMessages = initialMessages,
               tools = listOf(),
-              enableConversationConstrainedDecoding = false
+              enableConversationConstrainedDecoding = false,
+              temperature = request.temperature,
+              topP = request.top_p,
+              seed = request.seed,
             )
             delay(500)
 

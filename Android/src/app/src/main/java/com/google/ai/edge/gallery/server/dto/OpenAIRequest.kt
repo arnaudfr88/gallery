@@ -8,6 +8,9 @@ data class ChatCompletionRequest(
   val model: String,
   val messages: List<ChatMessage>,
   val stream: Boolean = false,
+  val temperature: Float? = null,
+  val top_p: Float? = null,
+  val seed: Int? = null,
   val extra_body: Map<String, JsonElement>? = null,
 )
 
