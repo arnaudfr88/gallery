@@ -52,9 +52,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.ai.edge.gallery.R
@@ -140,7 +146,13 @@ fun ChatCompletionTaskScreen(
     ) {
       Text(
         text = stringResource(R.string.server_cc_status_title),
-        style = MaterialTheme.typography.headlineMedium
+        style =
+          MaterialTheme.typography.headlineLarge.copy(
+            fontWeight = FontWeight.Medium,
+            brush =
+              Brush.linearGradient(colors = listOf(Color(0xFF85B1F8), Color(0xFF3174F1))),
+          ),
+        modifier = Modifier.padding(top = 12.dp, bottom = 16.dp),
       )
       Spacer(modifier = Modifier.height(8.dp))
       Text(
@@ -169,6 +181,14 @@ fun ChatCompletionTaskScreen(
           label = "rotation"
         )
 
+        val inferringBrush = remember {
+          Brush.linearGradient(colors = listOf(Color(0xFFFFD54F), Color(0xFFF57C00)))
+        }
+        val idleBrush = remember {
+          Brush.linearGradient(colors = listOf(Color(0xFF81C784), Color(0xFF388E3C)))
+        }
+        val currentBrush = if (isInferring) inferringBrush else idleBrush
+
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.Center
@@ -176,10 +196,17 @@ fun ChatCompletionTaskScreen(
           Icon(
             imageVector = if (isInferring) Icons.Filled.AllInclusive else Icons.Filled.AlternateEmail,
             contentDescription = null,
-            tint = if (isInferring) Color(0xFFFFA500) else Color.Green,
+            tint = Color.Black,
             modifier = Modifier
               .size(24.dp)
               .then(if (isInferring) Modifier.rotate(rotationAngle) else Modifier)
+              .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+              .drawWithCache {
+                onDrawWithContent {
+                  drawContent()
+                  drawRect(currentBrush, blendMode = BlendMode.SrcIn)
+                }
+              }
           )
           Spacer(modifier = Modifier.width(8.dp))
           Text(
