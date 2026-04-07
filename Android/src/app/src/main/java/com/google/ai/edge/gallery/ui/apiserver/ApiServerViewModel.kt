@@ -20,6 +20,8 @@ class ApiServerViewModel @Inject constructor(
   private val _port = MutableStateFlow(8080)
   val port = _port.asStateFlow()
 
+  val isInferring = ApiServerStatus.isInferring
+
   fun startServer() {
     ApiServerService.start(context, _port.value)
     _isRunning.value = true

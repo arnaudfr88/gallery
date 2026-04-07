@@ -25,6 +25,7 @@ import com.google.ai.edge.gallery.server.dto.Delta
 import com.google.ai.edge.gallery.server.dto.ModelListResponse
 import com.google.ai.edge.gallery.server.dto.ModelResponse
 import com.google.ai.edge.gallery.service.ModelManagerAccessor
+import com.google.ai.edge.gallery.ui.apiserver.ApiServerStatus
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -132,6 +133,7 @@ class OpenAIApiServer(
                 )
                 delay(500)
 
+                ApiServerStatus.setInferring(true)
                 LlmChatModelHelper.runInference(
                   model = model,
                   input = userInput,
@@ -140,11 +142,16 @@ class OpenAIApiServer(
                       channel.trySend(partial)
                     }
                     if (done) {
+                      ApiServerStatus.setInferring(false)
                       channel.close()
                     }
                   },
-                  cleanUpListener = { channel.close() },
+                  cleanUpListener = {
+                    ApiServerStatus.setInferring(false)
+                    channel.close()
+                  },
                   onError = { error ->
+                    ApiServerStatus.setInferring(false)
                     channel.close(Exception(error))
                   },
                 )
@@ -210,15 +217,24 @@ class OpenAIApiServer(
             )
             delay(500)
 
+            ApiServerStatus.setInferring(true)
             LlmChatModelHelper.runInference(
               model = model,
               input = userInput,
               resultListener = { partial, done, _ ->
                 buffer.append(partial)
-                if (done) fullResponse.complete(buffer.toString())
+                if (done) {
+                  ApiServerStatus.setInferring(false)
+                  fullResponse.complete(buffer.toString())
+                }
               },
-              cleanUpListener = {},
-              onError = { error -> fullResponse.completeExceptionally(Exception(error)) },
+              cleanUpListener = {
+                ApiServerStatus.setInferring(false)
+              },
+              onError = { error ->
+                ApiServerStatus.setInferring(false)
+                fullResponse.completeExceptionally(Exception(error))
+              },
             )
 
             try {
@@ -252,5 +268,6 @@ class OpenAIApiServer(
   fun stop() {
     server?.stop(1000, 3000)
     server = null
+    ApiServerStatus.setInferring(false)
   }
 }
