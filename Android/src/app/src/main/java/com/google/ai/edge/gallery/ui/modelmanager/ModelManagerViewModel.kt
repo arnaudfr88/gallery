@@ -573,6 +573,7 @@ constructor(
         BuiltInTaskId.LLM_TINY_GARDEN,
         BuiltInTaskId.LLM_MOBILE_ACTIONS,
         BuiltInTaskId.LLM_AGENT_CHAT,
+        BuiltInTaskId.SERVER_CHAT_COMPLETION,
       )
     for (task in getTasksByIds(ids = setOfTasks)) {
       // Remove duplicated imported model if existed.
@@ -586,6 +587,7 @@ constructor(
           (task.id == BuiltInTaskId.LLM_ASK_AUDIO && model.llmSupportAudio) ||
           (task.id == BuiltInTaskId.LLM_TINY_GARDEN && model.llmSupportTinyGarden) ||
           (task.id == BuiltInTaskId.LLM_MOBILE_ACTIONS && model.llmSupportMobileActions) ||
+          (task.id == BuiltInTaskId.SERVER_CHAT_COMPLETION && model.llmSupportAsServer) ||
           (task.id != BuiltInTaskId.LLM_ASK_IMAGE &&
             task.id != BuiltInTaskId.LLM_ASK_AUDIO &&
             task.id != BuiltInTaskId.LLM_TINY_GARDEN &&
@@ -900,6 +902,10 @@ constructor(
                 Log.w(TAG, "Model '${modelName}' in task '${task.label}' not found in allowlist.")
                 continue
               }
+              if (task.models.contains(model)) {
+                Log.w(TAG, "Model '${modelName}' in task '${task.label}' already exists.")
+                continue
+              }
               task.models.add(model)
             }
           }
@@ -1043,6 +1049,9 @@ constructor(
       }
       if (model.llmSupportMobileActions) {
         tasks.get(key = BuiltInTaskId.LLM_MOBILE_ACTIONS)?.models?.add(model)
+      }
+      if (model.llmSupportAsServer) {
+        tasks.get(key = BuiltInTaskId.SERVER_CHAT_COMPLETION)?.models?.add(model)
       }
 
       // Update status.

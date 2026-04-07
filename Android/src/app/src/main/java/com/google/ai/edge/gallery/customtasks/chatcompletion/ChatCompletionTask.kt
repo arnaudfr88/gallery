@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.runtime.Composable
 import com.google.ai.edge.gallery.customtasks.common.CustomTask
 import com.google.ai.edge.gallery.customtasks.common.CustomTaskData
+import com.google.ai.edge.gallery.data.BuiltInTaskId
 import com.google.ai.edge.gallery.data.CategoryInfo
 import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.data.Task
@@ -36,7 +37,7 @@ import javax.inject.Inject
 class ChatCompletionTask @Inject constructor() : CustomTask {
   override val task: Task =
     Task(
-      id = "chat_completion_server_task",
+      id = BuiltInTaskId.SERVER_CHAT_COMPLETION,
       label = "Chat Completion",
       category = CategoryInfo(id = "server", label = "Server"),
       icon = Icons.Outlined.SwapVert,

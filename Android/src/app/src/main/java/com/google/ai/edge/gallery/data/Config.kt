@@ -57,6 +57,7 @@ object ConfigKeys {
   val SUPPORT_AUDIO = ConfigKey("support_audio", "Support audio")
   val SUPPORT_TINY_GARDEN = ConfigKey("support_tiny_garden", "Support tiny garden")
   val SUPPORT_MOBILE_ACTIONS = ConfigKey("support_mobile_actions", "Support mobile actions")
+  val SUPPORT_AS_SERVER = ConfigKey("support_as_server", "Support as server")
   val SUPPORT_THINKING = ConfigKey("support_thinking", "Support thinking")
   val ENABLE_THINKING = ConfigKey("enable_thinking", "Enable thinking")
   val MAX_RESULT_COUNT = ConfigKey("max_result_count", "Max result count")
