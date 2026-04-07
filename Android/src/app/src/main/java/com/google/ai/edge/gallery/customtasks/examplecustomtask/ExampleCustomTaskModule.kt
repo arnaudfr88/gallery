@@ -34,11 +34,10 @@ import dagger.multibindings.IntoSet
 @Module
 @InstallIn(SingletonComponent::class) // Or another component that fits your scope
 internal object ExampleCustomTaskModule {
-  /* Remove comment to enable the function to see this example custom task in action in the app.
+  // Remove comment to enable the function to see this example custom task in action in the app.
   @Provides
   @IntoSet
   fun provideExampleCustomTask(): CustomTask {
     return ExampleCustomTask()
   }
-  */
 }
