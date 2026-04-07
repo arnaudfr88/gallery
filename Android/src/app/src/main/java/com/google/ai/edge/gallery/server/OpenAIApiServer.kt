@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.server
 
+import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.server.dto.ChatCompletionChunk
 import com.google.ai.edge.gallery.server.dto.ChatCompletionRequest
 import com.google.ai.edge.gallery.server.dto.ChatCompletionResponse
@@ -54,6 +55,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import java.util.UUID
 
 class OpenAIApiServer(
@@ -105,6 +108,11 @@ class OpenAIApiServer(
           val requestId = "chatcmpl-${UUID.randomUUID()}"
           val created = System.currentTimeMillis() / 1000
 
+          val allowThinking = model.llmSupportThinking
+          val extraBodyEnableThinking = request.extra_body?.get("enable_thinking")?.jsonPrimitive?.booleanOrNull
+          val enableThinking = allowThinking && (extraBodyEnableThinking ?: model.getBooleanConfigValue(key = ConfigKeys.ENABLE_THINKING, defaultValue = false))
+          val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
+
           if (request.stream) {
             call.respondTextWriter(contentType = ContentType.Text.EventStream) {
               val channel = Channel<String>(Channel.BUFFERED)
@@ -137,9 +145,16 @@ class OpenAIApiServer(
                 LlmChatModelHelper.runInference(
                   model = model,
                   input = userInput,
-                  resultListener = { partial, done, _ ->
-                    if (partial.isNotEmpty()) {
-                      channel.trySend(partial)
+                  resultListener = { partial, done, thinking ->
+                    if (partial.startsWith("<ctrl")) {
+                      // Do nothing. Ignore control tokens.
+                    } else {
+                      if (!thinking.isNullOrEmpty()) {
+                        channel.trySend(thinking)
+                      }
+                      if (partial.isNotEmpty()) {
+                        channel.trySend(partial)
+                      }
                     }
                     if (done) {
                       ApiServerStatus.setInferring(false)
@@ -154,6 +169,7 @@ class OpenAIApiServer(
                     ApiServerStatus.setInferring(false)
                     channel.close(Exception(error))
                   },
+                  extraContext = extraContext,
                 )
               }
 
@@ -221,8 +237,15 @@ class OpenAIApiServer(
             LlmChatModelHelper.runInference(
               model = model,
               input = userInput,
-              resultListener = { partial, done, _ ->
-                buffer.append(partial)
+              resultListener = { partial, done, thinking ->
+                if (partial.startsWith("<ctrl")) {
+                  // Do nothing. Ignore control tokens.
+                } else {
+                  if (!thinking.isNullOrEmpty()) {
+                    buffer.append(thinking)
+                  }
+                  buffer.append(partial)
+                }
                 if (done) {
                   ApiServerStatus.setInferring(false)
                   fullResponse.complete(buffer.toString())
@@ -235,6 +258,7 @@ class OpenAIApiServer(
                 ApiServerStatus.setInferring(false)
                 fullResponse.completeExceptionally(Exception(error))
               },
+              extraContext = extraContext,
             )
 
             try {

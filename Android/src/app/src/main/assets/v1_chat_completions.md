@@ -10,7 +10,7 @@ Supported features
 - ❌ Reproducible outputs
 - ❌ Vision
 - ❌ Tools
-- ❌ Reasoning/thinking control (for thinking models)
+- ✅ Reasoning/thinking control (for thinking models)
 - ❌ Logprobs
 
 Supported request fields
