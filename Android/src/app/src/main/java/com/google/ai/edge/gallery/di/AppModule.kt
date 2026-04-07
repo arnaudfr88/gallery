@@ -37,7 +37,7 @@ import com.google.ai.edge.gallery.proto.CutoutCollection
 import com.google.ai.edge.gallery.proto.Settings
 import com.google.ai.edge.gallery.proto.Skills
 import com.google.ai.edge.gallery.proto.UserData
-import com.google.ai.edge.gallery.service.AppStateHolder
+import com.google.ai.edge.gallery.service.ModelManagerHolder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -51,8 +51,8 @@ internal object AppModule {
 
   @Provides
   @Singleton
-  fun appStateHolder(): AppStateHolder {
-      return AppStateHolder()
+  fun modelManagerHolder(): ModelManagerHolder {
+      return ModelManagerHolder()
   }
 
   // Provides the SettingsSerializer

@@ -47,7 +47,7 @@ import androidx.core.animation.doOnEnd
 import androidx.core.os.bundleOf
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
-import com.google.ai.edge.gallery.service.AppStateHolder
+import com.google.ai.edge.gallery.service.ModelManagerHolder
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 import com.google.ai.edge.litertlm.ExperimentalApi
@@ -64,13 +64,15 @@ class MainActivity : ComponentActivity() {
   private val modelManagerViewModel: ModelManagerViewModel by viewModels()
 
   @Inject
-  lateinit var appStateHolder: AppStateHolder
+  lateinit var modelManagerHolder: ModelManagerHolder
 
   private var splashScreenAboutToExit: Boolean = false
   private var contentSet: Boolean = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+
+    modelManagerHolder.manager = modelManagerViewModel.asAccessor()
 
     fun setContent() {
       if (contentSet) {
@@ -81,8 +83,7 @@ class MainActivity : ComponentActivity() {
         GalleryTheme {
           Surface(modifier = Modifier.fillMaxSize()) {
             GalleryApp(
-              modelManagerViewModel = modelManagerViewModel,
-              appStateHolder = appStateHolder,
+              modelManagerViewModel = modelManagerViewModel
             )
 
             // Fade out a "mask" that has the same color as the background of the splash screen

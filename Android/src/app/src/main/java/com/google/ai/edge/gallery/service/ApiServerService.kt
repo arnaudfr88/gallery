@@ -19,7 +19,7 @@ class ApiServerService : Service() {
   private var apiServer: OpenAIApiServer? = null
 
   @Inject
-  lateinit var appStateHolder: AppStateHolder
+  lateinit var modelManagerHolder: ModelManagerHolder
 
   override fun onCreate() {
     super.onCreate()
@@ -30,7 +30,7 @@ class ApiServerService : Service() {
     val port = intent?.getIntExtra("port", 8080) ?: 8080
 
     if (apiServer == null) {
-      val manager = appStateHolder.manager
+      val manager = modelManagerHolder.manager
       if (manager != null) {
         apiServer = OpenAIApiServer(
           modelManager = manager,
@@ -64,8 +64,8 @@ class ApiServerService : Service() {
     notificationManager.createNotificationChannel(channel)
 
     return NotificationCompat.Builder(this, channelId)
-      .setContentTitle("AI Edge Gallery API Server")
-      .setContentText("Running on port 8080")
+      .setContentTitle(getString(R.string.server_service_notification_title))
+      .setContentText(getString(R.string.server_service_notification_text))
       .setSmallIcon(R.drawable.ic_launcher_foreground)
       .setOngoing(true)
       .build()

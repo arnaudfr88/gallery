@@ -76,8 +76,6 @@ import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.data.Task
 import com.google.ai.edge.gallery.data.isLegacyTasks
 import com.google.ai.edge.gallery.firebaseAnalytics
-import com.google.ai.edge.gallery.service.AppStateHolder
-import com.google.ai.edge.gallery.ui.apiserver.ApiServerScreen
 import com.google.ai.edge.gallery.ui.benchmark.BenchmarkScreen
 import com.google.ai.edge.gallery.ui.common.ErrorDialog
 import com.google.ai.edge.gallery.ui.common.ModelPageAppBar
@@ -98,7 +96,6 @@ private const val ROUTE_MODEL_LIST = "model_list"
 private const val ROUTE_MODEL = "route_model"
 private const val ROUTE_BENCHMARK = "benchmark"
 private const val ROUTE_MODEL_MANAGER = "model_manager"
-private const val ROUTE_API_SERVER = "api_server"
 private const val ENTER_ANIMATION_DURATION_MS = 500
 private val ENTER_ANIMATION_EASING = EaseOutExpo
 private const val ENTER_ANIMATION_DELAY_MS = 100
@@ -151,8 +148,7 @@ private fun AnimatedContentTransitionScope<*>.slideDownExit(): ExitTransition {
 fun GalleryNavHost(
   navController: NavHostController,
   modifier: Modifier = Modifier,
-  modelManagerViewModel: ModelManagerViewModel,
-  appStateHolder: AppStateHolder,
+  modelManagerViewModel: ModelManagerViewModel
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current
   var showModelManager by remember { mutableStateOf(false) }
@@ -212,7 +208,6 @@ fun GalleryNavHost(
               )
             },
             onModelsClicked = { navController.navigate(ROUTE_MODEL_MANAGER) },
-            onApiServerClicked = { navController.navigate(ROUTE_API_SERVER) },
             gm4 = true,
           )
         }
@@ -436,19 +431,6 @@ fun GalleryNavHost(
       }
     }
 
-    // API Server page.
-    composable(
-      route = ROUTE_API_SERVER,
-      enterTransition = { slideUpEnter() },
-      exitTransition = { slideDownExit() },
-    ) {
-      LaunchedEffect(Unit) {
-        appStateHolder.manager = modelManagerViewModel.asAccessor()
-      }
-      ApiServerScreen(
-        onBackClicked = { navController.navigateUp() }
-      )
-    }
   }
 
   // Handle incoming intents for deep links
@@ -469,8 +451,6 @@ fun GalleryNavHost(
       }
     } else if (data.toString() == "com.google.ai.edge.gallery://global_model_manager") {
       navController.navigate(ROUTE_MODEL_MANAGER)
-    } else if (data.toString() == "com.google.ai.edge.gallery://api_server") {
-      navController.navigate(ROUTE_API_SERVER)
     }
   }
 }

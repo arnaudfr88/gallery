@@ -16,8 +16,6 @@
 
 package com.google.ai.edge.gallery.server
 
-import com.google.ai.edge.gallery.data.Accelerator
-import com.google.ai.edge.gallery.data.ModelDownloadStatusType
 import com.google.ai.edge.gallery.server.dto.ChatCompletionChunk
 import com.google.ai.edge.gallery.server.dto.ChatCompletionRequest
 import com.google.ai.edge.gallery.server.dto.ChatCompletionResponse
@@ -30,10 +28,7 @@ import com.google.ai.edge.gallery.service.ModelManagerAccessor
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
-import com.google.ai.edge.litertlm.ConversationConfig
-import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.Message
-import com.google.ai.edge.litertlm.SamplerConfig
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -50,7 +45,6 @@ import io.ktor.server.response.respondTextWriter
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +53,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.util.UUID
 
 class OpenAIApiServer(
     private val modelManager: ModelManagerAccessor,

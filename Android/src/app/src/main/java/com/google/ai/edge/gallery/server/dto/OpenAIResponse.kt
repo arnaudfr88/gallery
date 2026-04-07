@@ -44,18 +44,18 @@ data class ChatCompletionChunk(
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
 data class ModelListResponse(
-    @EncodeDefault
-    val `object`: String = "list",
-    val data: List<ModelResponse>
+  @EncodeDefault
+  val `object`: String = "list",
+  val data: List<ModelResponse>
 )
 
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
 data class ModelResponse(
-    val id: String,
-    @EncodeDefault
-    val `object`: String = "model",
-    val created: Long,
-    @EncodeDefault
-    val owned_by: String = "local"
+  val id: String,
+  @EncodeDefault
+  val `object`: String = "model",
+  val created: Long,
+  @EncodeDefault
+  val owned_by: String = "local"
 )

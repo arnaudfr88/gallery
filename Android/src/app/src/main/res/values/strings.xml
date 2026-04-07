@@ -409,4 +409,6 @@
   <string name="server_cc_btn_start">Start Server</string>
   <string name="server_cc_status_stopped">Stopped</string>
   <string name="server_cc_status_running">Running on port %1$d</string>
+  <string name="server_service_notification_title">AI Edge Gallery as Server</string>
+  <string name="server_service_notification_text">Running on port 8080</string>
 </resources>
