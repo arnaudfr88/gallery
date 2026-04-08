@@ -114,7 +114,8 @@ fun ChatCompletionTaskScreen(
   val isRunning by apiServerViewModel.isRunning.collectAsState()
   val port by apiServerViewModel.port.collectAsState()
   val isInferring by apiServerViewModel.isInferring.collectAsState()
-  val isRequesting by apiServerViewModel.isRequesting.collectAsState()
+  val isRequesting by apiServerViewModel.isRequesting.collectAsState(initial = false)
+  val requestCount by apiServerViewModel.requestCount.collectAsState()
 
   var showConfirmDialog by remember { mutableStateOf(false) }
 
@@ -215,6 +216,15 @@ fun ChatCompletionTaskScreen(
             Brush.linearGradient(colors = listOf(Color(0xFF81C784), Color(0xFF388E3C)))
           }
           val currentBrush = if (isRequesting) requestingBrush else idleBrush
+
+          if (requestCount > 1) {
+            Text(
+              text = requestCount.toString(),
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+              color = Color(0xFFF57C00),
+              modifier = Modifier.padding(end = 4.dp)
+            )
+          }
 
           Icon(
             imageVector = if (isRequesting) Icons.Filled.AllInclusive else Icons.Filled.AlternateEmail,

@@ -71,6 +71,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -89,6 +91,7 @@ class OpenAIApiServer(
 ) {
   private var server: ApplicationEngine? = null
   private val json = Json { ignoreUnknownKeys = true }
+  private val inferenceMutex = Mutex()
 
   fun start() {
     server =
@@ -110,7 +113,7 @@ class OpenAIApiServer(
 
           // Chat completions
           post("/v1/chat/completions") {
-            ApiServerStatus.setRequesting(true)
+            ApiServerStatus.incrementRequestCount()
             try {
               val request = call.receive<ChatCompletionRequest>()
 
@@ -197,68 +200,79 @@ class OpenAIApiServer(
               if (request.stream) {
                 call.respondTextWriter(contentType = ContentType.Text.EventStream) {
                   val channel = Channel<String>(Channel.BUFFERED)
+                  val inferenceDone = CompletableDeferred<Unit>()
 
                   CoroutineScope(Dispatchers.Default).launch {
-                    val history = request.messages.dropLast(1)
-                    val systemMessage = request.messages.firstOrNull { it.role == "system" }
-                    val initialMessages =
-                      history
-                        .filter { it.role != "system" }
-                        .map {
-                          when (it.role) {
-                            "user" -> Message.user(it.textContent)
-                            "assistant" -> Message.model(it.textContent)
-                            else -> Message.user(it.textContent)
+                    inferenceMutex.withLock {
+                      val history = request.messages.dropLast(1)
+                      val systemMessage = request.messages.firstOrNull { it.role == "system" }
+                      val initialMessages =
+                        history
+                          .filter { it.role != "system" }
+                          .map {
+                            when (it.role) {
+                              "user" -> Message.user(it.textContent)
+                              "assistant" -> Message.model(it.textContent)
+                              else -> Message.user(it.textContent)
+                            }
                           }
-                        }
 
-                    LlmChatModelHelper.newConversation(
-                      model = model,
-                      supportImage = model.llmSupportImage,
-                      supportAudio = model.llmSupportAudio,
-                      systemInstruction =
-                        systemMessage?.let { Contents.of(Content.Text(it.textContent)) },
-                      initialMessages = initialMessages,
-                      tools = listOf(),
-                      enableConversationConstrainedDecoding = false,
-                      temperature = request.temperature,
-                      topP = request.top_p,
-                      seed = request.seed,
-                    )
-                    delay(500)
+                      LlmChatModelHelper.newConversation(
+                        model = model,
+                        supportImage = model.llmSupportImage,
+                        supportAudio = model.llmSupportAudio,
+                        systemInstruction =
+                          systemMessage?.let { Contents.of(Content.Text(it.textContent)) },
+                        initialMessages = initialMessages,
+                        tools = listOf(),
+                        enableConversationConstrainedDecoding = false,
+                        temperature = request.temperature,
+                        topP = request.top_p,
+                        seed = request.seed,
+                      )
+                      delay(500)
 
-                    ApiServerStatus.setInferring(true)
-                    LlmChatModelHelper.runInference(
-                      model = model,
-                      input = userInput,
-                      resultListener = { partial, done, thinking ->
-                        if (partial.startsWith("<ctrl")) {
-                          // Do nothing. Ignore control tokens.
-                        } else {
-                          if (!thinking.isNullOrEmpty()) {
-                            channel.trySend(thinking)
+                      ApiServerStatus.setInferring(true)
+                      LlmChatModelHelper.runInference(
+                        model = model,
+                        input = userInput,
+                        resultListener = { partial, done, thinking ->
+                          if (partial.startsWith("<ctrl")) {
+                            // Do nothing. Ignore control tokens.
+                          } else {
+                            if (!thinking.isNullOrEmpty()) {
+                              channel.trySend(thinking)
+                            }
+                            if (partial.isNotEmpty()) {
+                              channel.trySend(partial)
+                            }
                           }
-                          if (partial.isNotEmpty()) {
-                            channel.trySend(partial)
+                          if (done) {
+                            ApiServerStatus.setInferring(false)
+                            inferenceDone.complete(Unit)
                           }
-                        }
-                        if (done) {
+                        },
+                        cleanUpListener = {
                           ApiServerStatus.setInferring(false)
-                          channel.close()
-                        }
-                      },
-                      cleanUpListener = {
-                        ApiServerStatus.setInferring(false)
+                          if (!inferenceDone.isCompleted) inferenceDone.complete(Unit)
+                        },
+                        onError = { error ->
+                          ApiServerStatus.setInferring(false)
+                          inferenceDone.completeExceptionally(Exception(error))
+                        },
+                        images = images,
+                        audioClips = audioClips,
+                        extraContext = extraContext,
+                      )
+
+                      try {
+                        inferenceDone.await()
+                      } catch (e: Exception) {
+                        Log.e(TAG, "Inference error", e)
+                      } finally {
                         channel.close()
-                      },
-                      onError = { error ->
-                        ApiServerStatus.setInferring(false)
-                        channel.close(Exception(error))
-                      },
-                      images = images,
-                      audioClips = audioClips,
-                      extraContext = extraContext,
-                    )
+                      }
+                    }
                   }
 
                   // Send role delta
@@ -298,91 +312,93 @@ class OpenAIApiServer(
                   flush()
                 }
               } else {
-                val fullResponse = CompletableDeferred<String>()
-                val buffer = StringBuilder()
+                inferenceMutex.withLock {
+                  val fullResponse = CompletableDeferred<String>()
+                  val buffer = StringBuilder()
 
-                val history = request.messages.dropLast(1)
-                val systemMessage = request.messages.firstOrNull { it.role == "system" }
-                val initialMessages =
-                  history
-                    .filter { it.role != "system" }
-                    .map {
-                      when (it.role) {
-                        "user" -> Message.user(it.textContent)
-                        "assistant" -> Message.model(it.textContent)
-                        else -> Message.user(it.textContent)
+                  val history = request.messages.dropLast(1)
+                  val systemMessage = request.messages.firstOrNull { it.role == "system" }
+                  val initialMessages =
+                    history
+                      .filter { it.role != "system" }
+                      .map {
+                        when (it.role) {
+                          "user" -> Message.user(it.textContent)
+                          "assistant" -> Message.model(it.textContent)
+                          else -> Message.user(it.textContent)
+                        }
                       }
-                    }
 
-                LlmChatModelHelper.newConversation(
-                  model = model,
-                  supportImage = model.llmSupportImage,
-                  supportAudio = model.llmSupportAudio,
-                  systemInstruction = systemMessage?.let { Contents.of(Content.Text(it.textContent)) },
-                  initialMessages = initialMessages,
-                  tools = listOf(),
-                  enableConversationConstrainedDecoding = false,
-                  temperature = request.temperature,
-                  topP = request.top_p,
-                  seed = request.seed,
-                )
-                delay(500)
+                  LlmChatModelHelper.newConversation(
+                    model = model,
+                    supportImage = model.llmSupportImage,
+                    supportAudio = model.llmSupportAudio,
+                    systemInstruction = systemMessage?.let { Contents.of(Content.Text(it.textContent)) },
+                    initialMessages = initialMessages,
+                    tools = listOf(),
+                    enableConversationConstrainedDecoding = false,
+                    temperature = request.temperature,
+                    topP = request.top_p,
+                    seed = request.seed,
+                  )
+                  delay(500)
 
-                ApiServerStatus.setInferring(true)
-                LlmChatModelHelper.runInference(
-                  model = model,
-                  input = userInput,
-                  resultListener = { partial, done, thinking ->
-                    if (partial.startsWith("<ctrl")) {
-                      // Do nothing. Ignore control tokens.
-                    } else {
-                      if (!thinking.isNullOrEmpty()) {
-                        buffer.append(thinking)
+                  ApiServerStatus.setInferring(true)
+                  LlmChatModelHelper.runInference(
+                    model = model,
+                    input = userInput,
+                    resultListener = { partial, done, thinking ->
+                      if (partial.startsWith("<ctrl")) {
+                        // Do nothing. Ignore control tokens.
+                      } else {
+                        if (!thinking.isNullOrEmpty()) {
+                          buffer.append(thinking)
+                        }
+                        buffer.append(partial)
                       }
-                      buffer.append(partial)
-                    }
-                    if (done) {
+                      if (done) {
+                        ApiServerStatus.setInferring(false)
+                        fullResponse.complete(buffer.toString())
+                      }
+                    },
+                    cleanUpListener = { ApiServerStatus.setInferring(false) },
+                    onError = { error ->
                       ApiServerStatus.setInferring(false)
-                      fullResponse.complete(buffer.toString())
-                    }
-                  },
-                  cleanUpListener = { ApiServerStatus.setInferring(false) },
-                  onError = { error ->
-                    ApiServerStatus.setInferring(false)
-                    fullResponse.completeExceptionally(Exception(error))
-                  },
-                  images = images,
-                  audioClips = audioClips,
-                  extraContext = extraContext,
-                )
+                      fullResponse.completeExceptionally(Exception(error))
+                    },
+                    images = images,
+                    audioClips = audioClips,
+                    extraContext = extraContext,
+                  )
 
-                try {
-                  val content = fullResponse.await()
-                  call.respond(
-                    ChatCompletionResponse(
-                      id = requestId,
-                      created = created,
-                      model = request.model,
-                      choices =
-                        listOf(
-                          Choice(
-                            index = 0,
-                            message =
-                              ChatMessage(role = "assistant", content = JsonPrimitive(content)),
-                            finish_reason = "stop",
-                          )
-                        ),
+                  try {
+                    val content = fullResponse.await()
+                    call.respond(
+                      ChatCompletionResponse(
+                        id = requestId,
+                        created = created,
+                        model = request.model,
+                        choices =
+                          listOf(
+                            Choice(
+                              index = 0,
+                              message =
+                                ChatMessage(role = "assistant", content = JsonPrimitive(content)),
+                              finish_reason = "stop",
+                            )
+                          ),
+                      )
                     )
-                  )
-                } catch (e: Exception) {
-                  call.respond(
-                    HttpStatusCode.InternalServerError,
-                    mapOf("error" to mapOf("message" to (e.message ?: "Inference failed"))),
-                  )
+                  } catch (e: Exception) {
+                    call.respond(
+                      HttpStatusCode.InternalServerError,
+                      mapOf("error" to mapOf("message" to (e.message ?: "Inference failed"))),
+                    )
+                  }
                 }
               }
             } finally {
-              ApiServerStatus.setRequesting(false)
+              ApiServerStatus.decrementRequestCount()
             }
           }
         }
@@ -593,7 +609,6 @@ class OpenAIApiServer(
   fun stop() {
     server?.stop(1000, 3000)
     server = null
-    ApiServerStatus.setInferring(false)
-    ApiServerStatus.setRequesting(false)
+    ApiServerStatus.reset()
   }
 }
