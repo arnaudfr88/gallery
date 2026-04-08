@@ -89,7 +89,7 @@ private const val TAG = "AGOpenAIApiServer"
 class OpenAIApiServer(
   private val context: Context,
   private val modelManager: ModelManagerAccessor,
-  private val port: Int = 8080,
+  val port: Int = 8080,
 ) {
   private var server: ApplicationEngine? = null
   private val json = Json { ignoreUnknownKeys = true }

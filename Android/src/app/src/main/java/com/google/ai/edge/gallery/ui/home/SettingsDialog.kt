@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,6 +51,7 @@ import androidx.compose.material3.MultiChoiceSegmentedButtonRow
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -69,6 +71,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.google.ai.edge.gallery.BuildConfig
@@ -106,6 +110,13 @@ fun SettingsDialog(
   val focusRequester = remember { FocusRequester() }
   val interactionSource = remember { MutableInteractionSource() }
   var showTos by remember { mutableStateOf(false) }
+
+  var serverPort by remember {
+    mutableStateOf(modelManagerViewModel.dataStoreRepository.readServerPort().toString())
+  }
+  var autoStartServer by remember {
+    mutableStateOf(modelManagerViewModel.dataStoreRepository.readAutoStartServer())
+  }
 
   Dialog(onDismissRequest = onDismissed) {
     val focusManager = LocalFocusManager.current
@@ -288,6 +299,72 @@ fun SettingsDialog(
                   }
                 }
               }
+            }
+          }
+
+          // Server settings.
+          Column(
+            modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Text(
+              "Server settings",
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+            )
+
+            // Auto start server switch.
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+              Text(
+                stringResource(R.string.settings_auto_start_server_title),
+                style = MaterialTheme.typography.bodyMedium,
+              )
+              Switch(
+                checked = autoStartServer,
+                onCheckedChange = {
+                  autoStartServer = it
+                  modelManagerViewModel.dataStoreRepository.saveAutoStartServer(it)
+                },
+              )
+            }
+
+            // Server port.
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+              Text(
+                stringResource(R.string.settings_server_port_title),
+                style = MaterialTheme.typography.bodyMedium,
+              )
+              BasicTextField(
+                value = serverPort,
+                onValueChange = { newValue ->
+                  if (newValue.all { it.isDigit() } && newValue.length <= 5) {
+                    serverPort = newValue
+                    newValue.toIntOrNull()?.let {
+                      modelManagerViewModel.dataStoreRepository.saveServerPort(it)
+                    }
+                  }
+                },
+                keyboardOptions =
+                  KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                modifier =
+                  Modifier.width(80.dp)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                textStyle =
+                  MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.End,
+                  ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+                singleLine = true,
+              )
             }
           }
 

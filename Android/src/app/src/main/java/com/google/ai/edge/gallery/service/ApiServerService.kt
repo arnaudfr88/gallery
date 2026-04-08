@@ -23,7 +23,6 @@ class ApiServerService : Service() {
 
   override fun onCreate() {
     super.onCreate()
-    startForeground(NOTIFICATION_ID, buildNotification())
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -41,6 +40,7 @@ class ApiServerService : Service() {
       }
     }
 
+    startForeground(NOTIFICATION_ID, buildNotification())
     return START_STICKY
   }
 
@@ -66,7 +66,7 @@ class ApiServerService : Service() {
 
     return NotificationCompat.Builder(this, channelId)
       .setContentTitle(getString(R.string.server_service_notification_title))
-      .setContentText(getString(R.string.server_service_notification_text))
+      .setContentText(getString(R.string.server_service_notification_text, apiServer?.port))
       .setSmallIcon(R.drawable.ic_launcher_foreground)
       .setOngoing(true)
       .build()

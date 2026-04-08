@@ -119,6 +119,16 @@ fun ChatCompletionTaskScreen(
 
   var showConfirmDialog by remember { mutableStateOf(false) }
 
+  val isModelInitialized = modelManagerUiState.isModelInitialized(model = model)
+  LaunchedEffect(isModelInitialized) {
+    apiServerViewModel.setPort(modelManagerViewModel.dataStoreRepository.readServerPort())
+    if (isModelInitialized && !isRunning) {
+      if (modelManagerViewModel.dataStoreRepository.readAutoStartServer()) {
+        apiServerViewModel.startServer()
+      }
+    }
+  }
+
   val handleNavigateUp = {
     val modelInitializationStatus =
       modelManagerUiState.modelInitializationStatus[model.name]

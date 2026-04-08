@@ -109,6 +109,14 @@ interface DataStoreRepository {
 
   /** Returns whether a promo with the specified ID has been viewed. */
   fun hasViewedPromo(promoId: String): Boolean
+
+  fun readServerPort(): Int
+
+  fun saveServerPort(port: Int)
+
+  fun readAutoStartServer(): Boolean
+
+  fun saveAutoStartServer(autoStart: Boolean)
 }
 
 /** Repository for managing data using Proto DataStore. */
@@ -431,6 +439,33 @@ class DefaultDataStoreRepository(
     return runBlocking {
       val settings = dataStore.data.first()
       settings.viewedPromoIdList.contains(promoId)
+    }
+  }
+
+  override fun readServerPort(): Int {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      if (settings.serverPort == 0) 8080 else settings.serverPort
+    }
+  }
+
+  override fun saveServerPort(port: Int) {
+    runBlocking {
+      dataStore.updateData { settings -> settings.toBuilder().setServerPort(port).build() }
+    }
+  }
+
+  override fun readAutoStartServer(): Boolean {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      // Default to true.
+      if (!settings.hasAutoStartServer()) true else settings.autoStartServer
+    }
+  }
+
+  override fun saveAutoStartServer(autoStart: Boolean) {
+    runBlocking {
+      dataStore.updateData { settings -> settings.toBuilder().setAutoStartServer(autoStart).build() }
     }
   }
 }

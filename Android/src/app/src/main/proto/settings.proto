@@ -79,6 +79,10 @@ message Settings {
   // copybara:strip_end
 
   repeated string viewed_promo_id = 10;
+
+  // Server settings
+  optional int32 server_port = 11;
+  optional bool auto_start_server = 12;
 }
 
 message UserData {

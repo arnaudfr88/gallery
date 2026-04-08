@@ -413,5 +413,9 @@
   <string name="server_cc_inference_idle">Idle</string>
   <string name="server_cc_inference_ing">Inferring</string>
   <string name="server_service_notification_title">AI Edge Gallery as Server</string>
-  <string name="server_service_notification_text">Running on port 8080</string>
+  <string name="server_service_notification_text">Running on port %1$d</string>
+
+  <!-- Settings Dialog -->
+  <string name="settings_server_port_title">Server port</string>
+  <string name="settings_auto_start_server_title">Auto start server</string>
 </resources>
