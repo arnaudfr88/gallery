@@ -16,6 +16,8 @@
 
 package com.google.ai.edge.gallery.customtasks.chatcompletion
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
@@ -55,6 +57,7 @@ import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -90,17 +93,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.common.getLocalIpAddresses
 import com.google.ai.edge.gallery.ui.apiserver.ApiServerViewModel
 import com.google.ai.edge.gallery.ui.common.MarkdownText
 import com.google.ai.edge.gallery.ui.common.RotationalLoader
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
+import androidx.core.net.toUri
 
 @Composable
 fun ChatCompletionTaskScreen(
@@ -113,15 +119,18 @@ fun ChatCompletionTaskScreen(
   val model = modelManagerUiState.selectedModel
   val isRunning by apiServerViewModel.isRunning.collectAsState()
   val port by apiServerViewModel.port.collectAsState()
+  val host by apiServerViewModel.host.collectAsState()
   val isInferring by apiServerViewModel.isInferring.collectAsState()
   val isRequesting by apiServerViewModel.isRequesting.collectAsState(initial = false)
   val requestCount by apiServerViewModel.requestCount.collectAsState()
 
   var showConfirmDialog by remember { mutableStateOf(false) }
+  var showIpDialog by remember { mutableStateOf(false) }
 
   val isModelInitialized = modelManagerUiState.isModelInitialized(model = model)
   LaunchedEffect(isModelInitialized) {
     apiServerViewModel.setPort(modelManagerViewModel.dataStoreRepository.readServerPort())
+    apiServerViewModel.setHost(modelManagerViewModel.dataStoreRepository.readServerHost())
     if (isModelInitialized && !isRunning) {
       if (modelManagerViewModel.dataStoreRepository.readAutoStartServer()) {
         apiServerViewModel.startServer()
@@ -177,6 +186,53 @@ fun ChatCompletionTaskScreen(
           }
         ) {
           Text(stringResource(R.string.cancel))
+        }
+      }
+    )
+  }
+
+  if (showIpDialog) {
+    val context = LocalContext.current
+    val ipAddresses = if (host == "0.0.0.0") {
+      getLocalIpAddresses().ifEmpty { listOf("127.0.0.1") }
+    } else {
+      listOf(host)
+    }
+
+    AlertDialog(
+      onDismissRequest = { showIpDialog = false },
+      title = { Text(stringResource(R.string.server_cc_ip_dialog_title)) },
+      text = {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+          ipAddresses.forEach { host ->
+            val url = "http://$host:$port/"
+            Column(
+              modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                  val intent = Intent(Intent.ACTION_VIEW, url.toUri())
+                  context.startActivity(intent)
+                }
+                .padding(vertical = 4.dp)
+            ) {
+              Text(
+                text = url,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+                textDecoration = TextDecoration.Underline
+              )
+              Text(
+                text = stringResource(R.string.server_cc_ip_open_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
+            }
+          }
+        }
+      },
+      confirmButton = {
+        TextButton(onClick = { showIpDialog = false }) {
+          Text(stringResource(R.string.ok))
         }
       }
     )
@@ -258,7 +314,15 @@ fun ChatCompletionTaskScreen(
           text = if (isRunning) stringResource(R.string.server_cc_status_running, port)
             else stringResource(R.string.server_cc_status_stopped),
           color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-          style = MaterialTheme.typography.bodyLarge
+          style = MaterialTheme.typography.bodyLarge,
+          modifier = if (isRunning) {
+            Modifier
+              .clip(RoundedCornerShape(4.dp))
+              .clickable { showIpDialog = true }
+              .padding(horizontal = 4.dp)
+          } else {
+            Modifier
+          }
         )
       }
 
@@ -345,8 +409,7 @@ fun ChatCompletionTaskScreen(
           )
           Text(
             stringResource(R.string.aichat_initializing_content),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
           )
         }

@@ -111,11 +111,14 @@ fun SettingsDialog(
   val interactionSource = remember { MutableInteractionSource() }
   var showTos by remember { mutableStateOf(false) }
 
+  var autoStartServer by remember {
+    mutableStateOf(modelManagerViewModel.dataStoreRepository.readAutoStartServer())
+  }
   var serverPort by remember {
     mutableStateOf(modelManagerViewModel.dataStoreRepository.readServerPort().toString())
   }
-  var autoStartServer by remember {
-    mutableStateOf(modelManagerViewModel.dataStoreRepository.readAutoStartServer())
+  var serverHost by remember {
+    mutableStateOf(modelManagerViewModel.dataStoreRepository.readServerHost())
   }
 
   Dialog(onDismissRequest = onDismissed) {
@@ -328,6 +331,38 @@ fun SettingsDialog(
                   autoStartServer = it
                   modelManagerViewModel.dataStoreRepository.saveAutoStartServer(it)
                 },
+              )
+            }
+
+            // Server host.
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+              Text(
+                stringResource(R.string.settings_server_host_title),
+                style = MaterialTheme.typography.bodyMedium,
+              )
+              BasicTextField(
+                value = serverHost,
+                onValueChange = { newValue ->
+                  serverHost = newValue
+                  modelManagerViewModel.dataStoreRepository.saveServerHost(newValue)
+                },
+                keyboardOptions =
+                  KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+                modifier =
+                  Modifier.width(120.dp)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                textStyle =
+                  MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.End,
+                  ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+                singleLine = true,
               )
             }
 

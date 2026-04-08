@@ -90,6 +90,7 @@ class OpenAIApiServer(
   private val context: Context,
   private val modelManager: ModelManagerAccessor,
   val port: Int = 8080,
+  val host: String = "0.0.0.0",
 ) {
   private var server: ApplicationEngine? = null
   private val json = Json { ignoreUnknownKeys = true }
@@ -97,7 +98,7 @@ class OpenAIApiServer(
 
   fun start() {
     server =
-      embeddedServer(CIO, port = port) {
+      embeddedServer(CIO, port = port, host = host) {
         install(ContentNegotiation) { json(json) }
 
         routing {

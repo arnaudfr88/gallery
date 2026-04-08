@@ -24,13 +24,16 @@ class ApiServerViewModel @Inject constructor(
   private val _port = MutableStateFlow(8080)
   val port = _port.asStateFlow()
 
+  private val _host = MutableStateFlow("0.0.0.0")
+  val host = _host.asStateFlow()
+
   val isInferring = ApiServerStatus.isInferring
   val requestCount = ApiServerStatus.requestCount
   val isRequesting = requestCount.map { it > 0 }
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
   fun startServer() {
-    ApiServerService.start(context, _port.value)
+    ApiServerService.start(context, _port.value, _host.value)
     _isRunning.value = true
   }
 
@@ -41,5 +44,9 @@ class ApiServerViewModel @Inject constructor(
 
   fun setPort(port: Int) {
     _port.value = port
+  }
+
+  fun setHost(host: String) {
+    _host.value = host
   }
 }

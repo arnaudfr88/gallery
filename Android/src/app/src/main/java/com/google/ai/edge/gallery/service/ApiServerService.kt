@@ -27,6 +27,7 @@ class ApiServerService : Service() {
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     val port = intent?.getIntExtra("port", 8080) ?: 8080
+    val host = intent?.getStringExtra("host") ?: "0.0.0.0"
 
     if (apiServer == null) {
       val manager = modelManagerHolder.manager
@@ -35,6 +36,7 @@ class ApiServerService : Service() {
           context = this,
           modelManager = manager,
           port = port,
+          host = host,
         )
         apiServer?.start()
       }
@@ -75,9 +77,10 @@ class ApiServerService : Service() {
   companion object {
     const val NOTIFICATION_ID = 1001
 
-    fun start(context: Context, port: Int = 8080) {
+    fun start(context: Context, port: Int = 8080, host: String = "0.0.0.0") {
       val intent = Intent(context, ApiServerService::class.java)
         .putExtra("port", port)
+        .putExtra("host", host)
       context.startForegroundService(intent)
     }
 

@@ -83,6 +83,10 @@ message Settings {
   // Server settings
   optional int32 server_port = 11;
   optional bool auto_start_server = 12;
+  optional string server_host = 14;
+
+  // Allowlist base URL
+  optional string allowlist_base_url = 13;
 }
 
 message UserData {

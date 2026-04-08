@@ -41,6 +41,8 @@ import com.google.gson.Gson
 import java.io.File
 import java.io.FileInputStream
 import java.net.HttpURLConnection
+import java.net.Inet4Address
+import java.net.NetworkInterface
 import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -371,4 +373,25 @@ fun Modifier.clearFocusOnKeyboardDismiss(): Modifier = composed {
       if (isFocused) keyboardAppearedSinceLastFocused = false
     }
   }
+}
+
+fun getLocalIpAddresses(): List<String> {
+  val result = mutableListOf<String>()
+  try {
+    val interfaces = NetworkInterface.getNetworkInterfaces()
+    while (interfaces.hasMoreElements()) {
+      val networkInterface = interfaces.nextElement()
+      if (networkInterface.isLoopback || !networkInterface.isUp) continue
+      val addresses = networkInterface.inetAddresses
+      while (addresses.hasMoreElements()) {
+        val address = addresses.nextElement()
+        if (address is Inet4Address) {
+          result.add(address.hostAddress)
+        }
+      }
+    }
+  } catch (e: Exception) {
+    Log.e("AGUtils", "Error getting local IP addresses", e)
+  }
+  return result
 }

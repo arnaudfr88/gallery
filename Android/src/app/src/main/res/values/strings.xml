@@ -414,8 +414,11 @@
   <string name="server_cc_inference_ing">Inferring</string>
   <string name="server_service_notification_title">AI Edge Gallery as Server</string>
   <string name="server_service_notification_text">Running on port %1$d</string>
+  <string name="server_cc_ip_dialog_title" translatable="false">Server Addresses</string>
+  <string name="server_cc_ip_open_hint" translatable="false">Tap to open in browser</string>
 
   <!-- Settings Dialog -->
-  <string name="settings_server_port_title">Server port</string>
   <string name="settings_auto_start_server_title">Auto start server</string>
+  <string name="settings_server_host_title">Server host</string>
+  <string name="settings_server_port_title">Server port</string>
 </resources>

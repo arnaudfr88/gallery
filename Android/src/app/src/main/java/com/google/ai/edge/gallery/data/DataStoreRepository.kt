@@ -110,13 +110,17 @@ interface DataStoreRepository {
   /** Returns whether a promo with the specified ID has been viewed. */
   fun hasViewedPromo(promoId: String): Boolean
 
+  fun readAutoStartServer(): Boolean
+
+  fun saveAutoStartServer(autoStart: Boolean)
+
   fun readServerPort(): Int
 
   fun saveServerPort(port: Int)
 
-  fun readAutoStartServer(): Boolean
+  fun readServerHost(): String
 
-  fun saveAutoStartServer(autoStart: Boolean)
+  fun saveServerHost(host: String)
 }
 
 /** Repository for managing data using Proto DataStore. */
@@ -250,8 +254,8 @@ class DefaultDataStoreRepository(
 
   override fun acceptGemmaTermsOfUse() {
     runBlocking {
-      dataStore.updateData { settings ->
-        settings.toBuilder().setIsGemmaTermsAccepted(true).build()
+      dataStore.updateData {
+        settings -> settings.toBuilder().setIsGemmaTermsAccepted(true).build()
       }
     }
   }
@@ -442,19 +446,6 @@ class DefaultDataStoreRepository(
     }
   }
 
-  override fun readServerPort(): Int {
-    return runBlocking {
-      val settings = dataStore.data.first()
-      if (settings.serverPort == 0) 8080 else settings.serverPort
-    }
-  }
-
-  override fun saveServerPort(port: Int) {
-    runBlocking {
-      dataStore.updateData { settings -> settings.toBuilder().setServerPort(port).build() }
-    }
-  }
-
   override fun readAutoStartServer(): Boolean {
     return runBlocking {
       val settings = dataStore.data.first()
@@ -466,6 +457,32 @@ class DefaultDataStoreRepository(
   override fun saveAutoStartServer(autoStart: Boolean) {
     runBlocking {
       dataStore.updateData { settings -> settings.toBuilder().setAutoStartServer(autoStart).build() }
+    }
+  }
+
+  override fun readServerHost(): String {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      if (settings.serverHost.isNullOrEmpty()) "0.0.0.0" else settings.serverHost
+    }
+  }
+
+  override fun saveServerHost(host: String) {
+    runBlocking {
+      dataStore.updateData { settings -> settings.toBuilder().setServerHost(host).build() }
+    }
+  }
+
+  override fun readServerPort(): Int {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      if (settings.serverPort == 0) 8080 else settings.serverPort
+    }
+  }
+
+  override fun saveServerPort(port: Int) {
+    runBlocking {
+      dataStore.updateData { settings -> settings.toBuilder().setServerPort(port).build() }
     }
   }
 }
