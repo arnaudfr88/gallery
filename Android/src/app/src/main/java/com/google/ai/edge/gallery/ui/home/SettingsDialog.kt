@@ -111,6 +111,9 @@ fun SettingsDialog(
   val interactionSource = remember { MutableInteractionSource() }
   var showTos by remember { mutableStateOf(false) }
 
+  var allowlistBaseUrl by remember {
+    mutableStateOf(modelManagerViewModel.dataStoreRepository.readAllowlistBaseUrl())
+  }
   var autoStartServer by remember {
     mutableStateOf(modelManagerViewModel.dataStoreRepository.readAutoStartServer())
   }
@@ -303,6 +306,43 @@ fun SettingsDialog(
                 }
               }
             }
+          }
+
+          // Allowlist base URL.
+          Column(
+            modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Text(
+              stringResource(R.string.settings_allowlist_base_url_title),
+              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+            )
+            val version = BuildConfig.VERSION_NAME.replace(".", "_")
+            Text(
+              "This file `$version.json` will be downloaded from the entire address.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            BasicTextField(
+              value = allowlistBaseUrl,
+              onValueChange = { newValue ->
+                allowlistBaseUrl = newValue
+                modelManagerViewModel.dataStoreRepository.saveAllowlistBaseUrl(newValue)
+              },
+              keyboardOptions =
+                KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+              modifier =
+                Modifier.fillMaxWidth()
+                  .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                  .padding(horizontal = 12.dp, vertical = 8.dp),
+              textStyle =
+                MaterialTheme.typography.bodyMedium.copy(
+                  color = MaterialTheme.colorScheme.onSurface,
+                  textAlign = TextAlign.Start,
+                ),
+              cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+              singleLine = true,
+            )
           }
 
           // Server settings.

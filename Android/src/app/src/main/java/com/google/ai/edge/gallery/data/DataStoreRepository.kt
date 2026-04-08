@@ -110,6 +110,10 @@ interface DataStoreRepository {
   /** Returns whether a promo with the specified ID has been viewed. */
   fun hasViewedPromo(promoId: String): Boolean
 
+  fun readAllowlistBaseUrl(): String
+
+  fun saveAllowlistBaseUrl(url: String)
+
   fun readAutoStartServer(): Boolean
 
   fun saveAutoStartServer(autoStart: Boolean)
@@ -443,6 +447,19 @@ class DefaultDataStoreRepository(
     return runBlocking {
       val settings = dataStore.data.first()
       settings.viewedPromoIdList.contains(promoId)
+    }
+  }
+
+  override fun readAllowlistBaseUrl(): String {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      settings.allowlistBaseUrl
+    }
+  }
+
+  override fun saveAllowlistBaseUrl(url: String) {
+    runBlocking {
+      dataStore.updateData { settings -> settings.toBuilder().setAllowlistBaseUrl(url).build() }
     }
   }
 

@@ -421,4 +421,5 @@
   <string name="settings_auto_start_server_title">Auto start server</string>
   <string name="settings_server_host_title">Server host</string>
   <string name="settings_server_port_title">Server port</string>
+  <string name="settings_allowlist_base_url_title">Allowlist base URL</string>
 </resources>

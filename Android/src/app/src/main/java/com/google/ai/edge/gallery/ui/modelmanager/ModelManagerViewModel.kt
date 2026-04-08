@@ -831,6 +831,27 @@ constructor(
         }
 
         if (modelAllowlist == null) {
+          val customBaseUrl = dataStoreRepository.readAllowlistBaseUrl()
+          if (customBaseUrl.isNotEmpty()) {
+            val version = BuildConfig.VERSION_NAME.replace(".", "_")
+            val url = "$customBaseUrl/$version.json"
+            if (url.startsWith("https://")) {
+              Log.d(TAG, "Loading model allowlist from custom URL: $url")
+              val data = getJsonResponse<ModelAllowlist>(url = url)
+              modelAllowlist = data?.jsonObj
+            } else if (url.startsWith("file://")) {
+              val filePath = url.substring(7)
+              Log.d(TAG, "Loading model allowlist from custom file: $filePath")
+              val file = File(filePath)
+              if (file.exists()) {
+                val content = file.readText()
+                modelAllowlist = Gson().fromJson(content, ModelAllowlist::class.java)
+              }
+            }
+          }
+        }
+
+        if (modelAllowlist == null) {
           // Load from github.
           var version = BuildConfig.VERSION_NAME.replace(".", "_")
           val url = getAllowlistUrl(version)
