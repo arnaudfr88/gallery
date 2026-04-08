@@ -16,6 +16,7 @@
 
 package com.google.ai.edge.gallery.customtasks.chatcompletion
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -23,6 +24,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,6 +44,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -47,7 +55,6 @@ import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -78,14 +85,19 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.ai.edge.gallery.R
 import com.google.ai.edge.gallery.ui.apiserver.ApiServerViewModel
 import com.google.ai.edge.gallery.ui.common.MarkdownText
+import com.google.ai.edge.gallery.ui.common.RotationalLoader
 import com.google.ai.edge.gallery.ui.modelmanager.ModelInitializationStatusType
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
@@ -102,6 +114,7 @@ fun ChatCompletionTaskScreen(
   val isRunning by apiServerViewModel.isRunning.collectAsState()
   val port by apiServerViewModel.port.collectAsState()
   val isInferring by apiServerViewModel.isInferring.collectAsState()
+  val isRequesting by apiServerViewModel.isRequesting.collectAsState()
 
   var showConfirmDialog by remember { mutableStateOf(false) }
 
@@ -178,12 +191,56 @@ fun ChatCompletionTaskScreen(
         modifier = Modifier.padding(top = 12.dp, bottom = 16.dp),
       )
       Spacer(modifier = Modifier.height(8.dp))
-      Text(
-        text = if (isRunning) stringResource(R.string.server_cc_status_running, port)
-          else stringResource(R.string.server_cc_status_stopped),
-        color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-        style = MaterialTheme.typography.bodyLarge
-      )
+
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+      ) {
+        if (isRunning) {
+          val infiniteTransition = rememberInfiniteTransition(label = "request_rotation")
+          val rotationAngle by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+              animation = tween(2000, easing = LinearEasing),
+              repeatMode = RepeatMode.Restart
+            ),
+            label = "request_rotation"
+          )
+
+          val requestingBrush = remember {
+            Brush.linearGradient(colors = listOf(Color(0xFFFFD54F), Color(0xFFF57C00)))
+          }
+          val idleBrush = remember {
+            Brush.linearGradient(colors = listOf(Color(0xFF81C784), Color(0xFF388E3C)))
+          }
+          val currentBrush = if (isRequesting) requestingBrush else idleBrush
+
+          Icon(
+            imageVector = if (isRequesting) Icons.Filled.AllInclusive else Icons.Filled.AlternateEmail,
+            contentDescription = null,
+            tint = Color.Black,
+            modifier = Modifier
+              .size(24.dp)
+              .then(if (isRequesting) Modifier.rotate(rotationAngle) else Modifier)
+              .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+              .drawWithCache {
+                onDrawWithContent {
+                  drawContent()
+                  drawRect(currentBrush, blendMode = BlendMode.SrcIn)
+                }
+              }
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+        }
+
+        Text(
+          text = if (isRunning) stringResource(R.string.server_cc_status_running, port)
+            else stringResource(R.string.server_cc_status_stopped),
+          color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+          style = MaterialTheme.typography.bodyLarge
+        )
+      }
 
       if (isRunning) {
         Spacer(modifier = Modifier.height(12.dp))
@@ -193,44 +250,15 @@ fun ChatCompletionTaskScreen(
           stringResource(R.string.server_cc_inference_idle)
         }
 
-        val infiniteTransition = rememberInfiniteTransition(label = "rotation")
-        val rotationAngle by infiniteTransition.animateFloat(
-          initialValue = 0f,
-          targetValue = 360f,
-          animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-          ),
-          label = "rotation"
-        )
-
-        val inferringBrush = remember {
-          Brush.linearGradient(colors = listOf(Color(0xFFFFD54F), Color(0xFFF57C00)))
-        }
-        val idleBrush = remember {
-          Brush.linearGradient(colors = listOf(Color(0xFF81C784), Color(0xFF388E3C)))
-        }
-        val currentBrush = if (isInferring) inferringBrush else idleBrush
-
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.Center
         ) {
-          Icon(
-            imageVector = if (isInferring) Icons.Filled.AllInclusive else Icons.Filled.AlternateEmail,
-            contentDescription = null,
-            tint = Color.Black,
-            modifier = Modifier
-              .size(24.dp)
-              .then(if (isInferring) Modifier.rotate(rotationAngle) else Modifier)
-              .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
-              .drawWithCache {
-                onDrawWithContent {
-                  drawContent()
-                  drawRect(currentBrush, blendMode = BlendMode.SrcIn)
-                }
-              }
-          )
+          if (isInferring) {
+            RotationalLoader(size = 24.dp)
+          } else {
+            StaticRotationalLoader(size = 24.dp)
+          }
           Spacer(modifier = Modifier.width(8.dp))
           Text(
             text = stringResource(R.string.server_cc_inference_status, inferenceStatusText),
@@ -267,15 +295,101 @@ fun ChatCompletionTaskScreen(
         )
       }
     }
+  } else {
+    val modelInitializationStatus = modelManagerUiState.modelInitializationStatus[model.name]
+    val isInitializing =
+      modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+      AnimatedVisibility(
+        visible = isInitializing,
+        enter = fadeIn() + scaleIn(initialScale = 0.9f),
+        exit = fadeOut() + scaleOut(targetScale = 0.9f),
+      ) {
+        Column(
+          horizontalAlignment = Alignment.CenterHorizontally,
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          RotationalLoader(size = 32.dp)
+          Text(
+            stringResource(R.string.aichat_initializing_title),
+            style =
+              MaterialTheme.typography.headlineLarge.copy(
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+              ),
+          )
+          Text(
+            stringResource(R.string.aichat_initializing_content),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+          )
+        }
+      }
+    }
   }
-  // Loading spinner.
-  else {
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-      CircularProgressIndicator(
-        modifier = Modifier.size(24.dp),
-        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        strokeWidth = 3.dp,
+}
+
+@Composable
+private fun StaticRotationalLoader(size: Dp) {
+  val gridSpacing = size * 0.1f
+  val iconSizeFactor = 0.3f
+  val curRotationZ = 45f
+  val curScale = 1f
+
+  LazyVerticalGrid(
+    columns = GridCells.Fixed(2),
+    horizontalArrangement = Arrangement.spacedBy(gridSpacing),
+    verticalArrangement = Arrangement.spacedBy(gridSpacing),
+    modifier = Modifier.size(size).graphicsLayer { rotationZ = curRotationZ },
+    userScrollEnabled = false
+  ) {
+    itemsIndexed(
+      listOf(
+        R.drawable.four_circle,
+        R.drawable.circle,
+        R.drawable.double_circle,
+        R.drawable.pantegon,
       )
+    ) { index, imageResource ->
+      Box(
+        modifier = Modifier.size((size - gridSpacing) / 2),
+        contentAlignment =
+          when (index) {
+            0 -> Alignment.BottomEnd
+            1 -> Alignment.BottomStart
+            2 -> Alignment.TopEnd
+            3 -> Alignment.TopStart
+            else -> Alignment.Center
+          },
+      ) {
+        val colorIndex =
+          when (index) {
+            0 -> 2
+            1 -> 1
+            2 -> 0
+            else -> 3
+          }
+        val brush =
+          Brush.linearGradient(colors = MaterialTheme.customColors.taskBgGradientColors[colorIndex])
+        Image(
+          painter = painterResource(id = imageResource),
+          contentDescription = null,
+          modifier =
+            Modifier.size(size * iconSizeFactor)
+              .graphicsLayer {
+                alpha = 0.99f
+                rotationZ = -curRotationZ
+                scaleX = curScale
+                scaleY = curScale
+              }
+              .drawWithContent {
+                drawContent()
+                drawRect(brush = brush, blendMode = BlendMode.SrcIn)
+              },
+          contentScale = ContentScale.Fit,
+        )
+      }
     }
   }
 }

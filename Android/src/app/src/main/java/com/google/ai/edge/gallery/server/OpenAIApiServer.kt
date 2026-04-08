@@ -110,63 +110,66 @@ class OpenAIApiServer(
 
           // Chat completions
           post("/v1/chat/completions") {
-            val request = call.receive<ChatCompletionRequest>()
+            ApiServerStatus.setRequesting(true)
+            try {
+              val request = call.receive<ChatCompletionRequest>()
 
-            // Find the corresponding downloaded model
-            val model = modelManager.getModelByName(request.model)
-            if (model == null || model.instance == null) {
-              call.respond(
-                HttpStatusCode.NotFound,
-                mapOf(
-                  "error" to
-                    mapOf("message" to "Model '${request.model}' not found or not initialized")
-                ),
-              )
-              return@post
-            }
+              // Find the corresponding downloaded model
+              val model = modelManager.getModelByName(request.model)
+              if (model == null || model.instance == null) {
+                call.respond(
+                  HttpStatusCode.NotFound,
+                  mapOf(
+                    "error" to
+                      mapOf("message" to "Model '${request.model}' not found or not initialized")
+                  ),
+                )
+                return@post
+              }
 
-            val lastUserMessage = request.messages.lastOrNull { it.role == "user" }
-            val userInput = lastUserMessage?.textContent ?: ""
+              val lastUserMessage = request.messages.lastOrNull { it.role == "user" }
+              val userInput = lastUserMessage?.textContent ?: ""
 
-            val images = mutableListOf<Bitmap>()
-            val audioClips = mutableListOf<ByteArray>()
-            if (lastUserMessage != null) {
-              val content = lastUserMessage.content
-              if (content is JsonArray) {
-                for (element in content) {
-                  if (element is JsonObject) {
-                    val type = element["type"]?.jsonPrimitive?.content
-                    when (type) {
-                      "image_url" -> {
-                        if (model.llmSupportImage) {
-                          val imageUrlObj = element["image_url"] as? JsonObject
-                          val url = imageUrlObj?.get("url")?.jsonPrimitive?.content
-                          val detailStr = imageUrlObj?.get("detail")?.jsonPrimitive?.content
-                          val detail =
-                            when (detailStr) {
-                              "low" -> ImageDetail.LOW
-                              "high" -> ImageDetail.HIGH
-                              else -> ImageDetail.AUTO
-                            }
+              val images = mutableListOf<Bitmap>()
+              val audioClips = mutableListOf<ByteArray>()
+              if (lastUserMessage != null) {
+                val content = lastUserMessage.content
+                if (content is JsonArray) {
+                  for (element in content) {
+                    if (element is JsonObject) {
+                      val type = element["type"]?.jsonPrimitive?.content
+                      when (type) {
+                        "image_url" -> {
+                          if (model.llmSupportImage) {
+                            val imageUrlObj = element["image_url"] as? JsonObject
+                            val url = imageUrlObj?.get("url")?.jsonPrimitive?.content
+                            val detailStr = imageUrlObj?.get("detail")?.jsonPrimitive?.content
+                            val detail =
+                              when (detailStr) {
+                                "low" -> ImageDetail.LOW
+                                "high" -> ImageDetail.HIGH
+                                else -> ImageDetail.AUTO
+                              }
 
-                          if (url != null) {
-                            val bitmap = loadBitmap(url)
-                            if (bitmap != null) {
-                              val resizedBitmap = resizeIfNeeded(bitmap, getResizeConfig(detail))
-                              images.add(resizedBitmap)
+                            if (url != null) {
+                              val bitmap = loadBitmap(url)
+                              if (bitmap != null) {
+                                val resizedBitmap = resizeIfNeeded(bitmap, getResizeConfig(detail))
+                                images.add(resizedBitmap)
+                              }
                             }
                           }
                         }
-                      }
-                      "input_audio" -> {
-                        if (model.llmSupportAudio) {
-                          val inputAudioObj = element["input_audio"] as? JsonObject
-                          val data = inputAudioObj?.get("data")?.jsonPrimitive?.content
-                          if (data != null) {
-                            val decodedBytes = Base64.decode(data, Base64.DEFAULT)
-                            val monoPcm = decodeToMonoPcm(decodedBytes)
-                            if (monoPcm != null) {
-                              audioClips.add(wrapPcmInWav(monoPcm, SAMPLE_RATE))
+                        "input_audio" -> {
+                          if (model.llmSupportAudio) {
+                            val inputAudioObj = element["input_audio"] as? JsonObject
+                            val data = inputAudioObj?.get("data")?.jsonPrimitive?.content
+                            if (data != null) {
+                              val decodedBytes = Base64.decode(data, Base64.DEFAULT)
+                              val monoPcm = decodeToMonoPcm(decodedBytes)
+                              if (monoPcm != null) {
+                                audioClips.add(wrapPcmInWav(monoPcm, SAMPLE_RATE))
+                              }
                             }
                           }
                         }
@@ -175,209 +178,211 @@ class OpenAIApiServer(
                   }
                 }
               }
-            }
 
-            val requestId = "chatcmpl-${UUID.randomUUID()}"
-            val created = System.currentTimeMillis() / 1000
+              val requestId = "chatcmpl-${UUID.randomUUID()}"
+              val created = System.currentTimeMillis() / 1000
 
-            val allowThinking = model.llmSupportThinking
-            val extraBodyEnableThinking =
-              request.extra_body?.get("enable_thinking")?.jsonPrimitive?.booleanOrNull
-            val enableThinking =
-              allowThinking &&
-                (extraBodyEnableThinking
-                  ?: model.getBooleanConfigValue(
-                    key = ConfigKeys.ENABLE_THINKING,
-                    defaultValue = false,
-                  ))
-            val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
+              val allowThinking = model.llmSupportThinking
+              val extraBodyEnableThinking =
+                request.extra_body?.get("enable_thinking")?.jsonPrimitive?.booleanOrNull
+              val enableThinking =
+                allowThinking &&
+                  (extraBodyEnableThinking
+                    ?: model.getBooleanConfigValue(
+                      key = ConfigKeys.ENABLE_THINKING,
+                      defaultValue = false,
+                    ))
+              val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
-            if (request.stream) {
-              call.respondTextWriter(contentType = ContentType.Text.EventStream) {
-                val channel = Channel<String>(Channel.BUFFERED)
+              if (request.stream) {
+                call.respondTextWriter(contentType = ContentType.Text.EventStream) {
+                  val channel = Channel<String>(Channel.BUFFERED)
 
-                CoroutineScope(Dispatchers.Default).launch {
-                  val history = request.messages.dropLast(1)
-                  val systemMessage = request.messages.firstOrNull { it.role == "system" }
-                  val initialMessages =
-                    history
-                      .filter { it.role != "system" }
-                      .map {
-                        when (it.role) {
-                          "user" -> Message.user(it.textContent)
-                          "assistant" -> Message.model(it.textContent)
-                          else -> Message.user(it.textContent)
+                  CoroutineScope(Dispatchers.Default).launch {
+                    val history = request.messages.dropLast(1)
+                    val systemMessage = request.messages.firstOrNull { it.role == "system" }
+                    val initialMessages =
+                      history
+                        .filter { it.role != "system" }
+                        .map {
+                          when (it.role) {
+                            "user" -> Message.user(it.textContent)
+                            "assistant" -> Message.model(it.textContent)
+                            else -> Message.user(it.textContent)
+                          }
                         }
-                      }
 
-                  LlmChatModelHelper.newConversation(
-                    model = model,
-                    supportImage = model.llmSupportImage,
-                    supportAudio = model.llmSupportAudio,
-                    systemInstruction =
-                      systemMessage?.let { Contents.of(Content.Text(it.textContent)) },
-                    initialMessages = initialMessages,
-                    tools = listOf(),
-                    enableConversationConstrainedDecoding = false,
-                    temperature = request.temperature,
-                    topP = request.top_p,
-                    seed = request.seed,
-                  )
-                  delay(500)
+                    LlmChatModelHelper.newConversation(
+                      model = model,
+                      supportImage = model.llmSupportImage,
+                      supportAudio = model.llmSupportAudio,
+                      systemInstruction =
+                        systemMessage?.let { Contents.of(Content.Text(it.textContent)) },
+                      initialMessages = initialMessages,
+                      tools = listOf(),
+                      enableConversationConstrainedDecoding = false,
+                      temperature = request.temperature,
+                      topP = request.top_p,
+                      seed = request.seed,
+                    )
+                    delay(500)
 
-                  ApiServerStatus.setInferring(true)
-                  LlmChatModelHelper.runInference(
-                    model = model,
-                    input = userInput,
-                    resultListener = { partial, done, thinking ->
-                      if (partial.startsWith("<ctrl")) {
-                        // Do nothing. Ignore control tokens.
-                      } else {
-                        if (!thinking.isNullOrEmpty()) {
-                          channel.trySend(thinking)
+                    ApiServerStatus.setInferring(true)
+                    LlmChatModelHelper.runInference(
+                      model = model,
+                      input = userInput,
+                      resultListener = { partial, done, thinking ->
+                        if (partial.startsWith("<ctrl")) {
+                          // Do nothing. Ignore control tokens.
+                        } else {
+                          if (!thinking.isNullOrEmpty()) {
+                            channel.trySend(thinking)
+                          }
+                          if (partial.isNotEmpty()) {
+                            channel.trySend(partial)
+                          }
                         }
-                        if (partial.isNotEmpty()) {
-                          channel.trySend(partial)
+                        if (done) {
+                          ApiServerStatus.setInferring(false)
+                          channel.close()
                         }
-                      }
-                      if (done) {
+                      },
+                      cleanUpListener = {
                         ApiServerStatus.setInferring(false)
                         channel.close()
-                      }
-                    },
-                    cleanUpListener = {
-                      ApiServerStatus.setInferring(false)
-                      channel.close()
-                    },
-                    onError = { error ->
-                      ApiServerStatus.setInferring(false)
-                      channel.close(Exception(error))
-                    },
-                    images = images,
-                    audioClips = audioClips,
-                    extraContext = extraContext,
-                  )
-                }
+                      },
+                      onError = { error ->
+                        ApiServerStatus.setInferring(false)
+                        channel.close(Exception(error))
+                      },
+                      images = images,
+                      audioClips = audioClips,
+                      extraContext = extraContext,
+                    )
+                  }
 
-                // Send role delta
-                val roleChunk =
-                  ChatCompletionChunk(
-                    id = requestId,
-                    created = created,
-                    model = request.model,
-                    choices = listOf(Choice(index = 0, delta = Delta(role = "assistant"))),
-                  )
-                write("data: ${json.encodeToString(roleChunk)}\n\n")
-                flush()
-
-                // Send tokens
-                for (token in channel) {
-                  val chunk =
+                  // Send role delta
+                  val roleChunk =
                     ChatCompletionChunk(
                       id = requestId,
                       created = created,
                       model = request.model,
-                      choices = listOf(Choice(index = 0, delta = Delta(content = token))),
+                      choices = listOf(Choice(index = 0, delta = Delta(role = "assistant"))),
                     )
-                  write("data: ${json.encodeToString(chunk)}\n\n")
+                  write("data: ${json.encodeToString(roleChunk)}\n\n")
+                  flush()
+
+                  // Send tokens
+                  for (token in channel) {
+                    val chunk =
+                      ChatCompletionChunk(
+                        id = requestId,
+                        created = created,
+                        model = request.model,
+                        choices = listOf(Choice(index = 0, delta = Delta(content = token))),
+                      )
+                    write("data: ${json.encodeToString(chunk)}\n\n")
+                    flush()
+                  }
+
+                  // Send finish reason
+                  val doneChunk =
+                    ChatCompletionChunk(
+                      id = requestId,
+                      created = created,
+                      model = request.model,
+                      choices = listOf(Choice(index = 0, delta = Delta(), finish_reason = "stop")),
+                    )
+                  write("data: ${json.encodeToString(doneChunk)}\n\n")
+                  write("data: [DONE]\n\n")
                   flush()
                 }
+              } else {
+                val fullResponse = CompletableDeferred<String>()
+                val buffer = StringBuilder()
 
-                // Send finish reason
-                val doneChunk =
-                  ChatCompletionChunk(
-                    id = requestId,
-                    created = created,
-                    model = request.model,
-                    choices = listOf(Choice(index = 0, delta = Delta(), finish_reason = "stop")),
-                  )
-                write("data: ${json.encodeToString(doneChunk)}\n\n")
-                write("data: [DONE]\n\n")
-                flush()
-              }
-            } else {
-              val fullResponse = CompletableDeferred<String>()
-              val buffer = StringBuilder()
-
-              val history = request.messages.dropLast(1)
-              val systemMessage = request.messages.firstOrNull { it.role == "system" }
-              val initialMessages =
-                history
-                  .filter { it.role != "system" }
-                  .map {
-                    when (it.role) {
-                      "user" -> Message.user(it.textContent)
-                      "assistant" -> Message.model(it.textContent)
-                      else -> Message.user(it.textContent)
+                val history = request.messages.dropLast(1)
+                val systemMessage = request.messages.firstOrNull { it.role == "system" }
+                val initialMessages =
+                  history
+                    .filter { it.role != "system" }
+                    .map {
+                      when (it.role) {
+                        "user" -> Message.user(it.textContent)
+                        "assistant" -> Message.model(it.textContent)
+                        else -> Message.user(it.textContent)
+                      }
                     }
-                  }
 
-              LlmChatModelHelper.newConversation(
-                model = model,
-                supportImage = model.llmSupportImage,
-                supportAudio = model.llmSupportAudio,
-                systemInstruction = systemMessage?.let { Contents.of(Content.Text(it.textContent)) },
-                initialMessages = initialMessages,
-                tools = listOf(),
-                enableConversationConstrainedDecoding = false,
-                temperature = request.temperature,
-                topP = request.top_p,
-                seed = request.seed,
-              )
-              delay(500)
+                LlmChatModelHelper.newConversation(
+                  model = model,
+                  supportImage = model.llmSupportImage,
+                  supportAudio = model.llmSupportAudio,
+                  systemInstruction = systemMessage?.let { Contents.of(Content.Text(it.textContent)) },
+                  initialMessages = initialMessages,
+                  tools = listOf(),
+                  enableConversationConstrainedDecoding = false,
+                  temperature = request.temperature,
+                  topP = request.top_p,
+                  seed = request.seed,
+                )
+                delay(500)
 
-              ApiServerStatus.setInferring(true)
-              LlmChatModelHelper.runInference(
-                model = model,
-                input = userInput,
-                resultListener = { partial, done, thinking ->
-                  if (partial.startsWith("<ctrl")) {
-                    // Do nothing. Ignore control tokens.
-                  } else {
-                    if (!thinking.isNullOrEmpty()) {
-                      buffer.append(thinking)
+                ApiServerStatus.setInferring(true)
+                LlmChatModelHelper.runInference(
+                  model = model,
+                  input = userInput,
+                  resultListener = { partial, done, thinking ->
+                    if (partial.startsWith("<ctrl")) {
+                      // Do nothing. Ignore control tokens.
+                    } else {
+                      if (!thinking.isNullOrEmpty()) {
+                        buffer.append(thinking)
+                      }
+                      buffer.append(partial)
                     }
-                    buffer.append(partial)
-                  }
-                  if (done) {
+                    if (done) {
+                      ApiServerStatus.setInferring(false)
+                      fullResponse.complete(buffer.toString())
+                    }
+                  },
+                  cleanUpListener = { ApiServerStatus.setInferring(false) },
+                  onError = { error ->
                     ApiServerStatus.setInferring(false)
-                    fullResponse.complete(buffer.toString())
-                  }
-                },
-                cleanUpListener = { ApiServerStatus.setInferring(false) },
-                onError = { error ->
-                  ApiServerStatus.setInferring(false)
-                  fullResponse.completeExceptionally(Exception(error))
-                },
-                images = images,
-                audioClips = audioClips,
-                extraContext = extraContext,
-              )
+                    fullResponse.completeExceptionally(Exception(error))
+                  },
+                  images = images,
+                  audioClips = audioClips,
+                  extraContext = extraContext,
+                )
 
-              try {
-                val content = fullResponse.await()
-                call.respond(
-                  ChatCompletionResponse(
-                    id = requestId,
-                    created = created,
-                    model = request.model,
-                    choices =
-                      listOf(
-                        Choice(
-                          index = 0,
-                          message =
-                            ChatMessage(role = "assistant", content = JsonPrimitive(content)),
-                          finish_reason = "stop",
-                        )
-                      ),
+                try {
+                  val content = fullResponse.await()
+                  call.respond(
+                    ChatCompletionResponse(
+                      id = requestId,
+                      created = created,
+                      model = request.model,
+                      choices =
+                        listOf(
+                          Choice(
+                            index = 0,
+                            message =
+                              ChatMessage(role = "assistant", content = JsonPrimitive(content)),
+                            finish_reason = "stop",
+                          )
+                        ),
+                    )
                   )
-                )
-              } catch (e: Exception) {
-                call.respond(
-                  HttpStatusCode.InternalServerError,
-                  mapOf("error" to mapOf("message" to (e.message ?: "Inference failed"))),
-                )
+                } catch (e: Exception) {
+                  call.respond(
+                    HttpStatusCode.InternalServerError,
+                    mapOf("error" to mapOf("message" to (e.message ?: "Inference failed"))),
+                  )
+                }
               }
+            } finally {
+              ApiServerStatus.setRequesting(false)
             }
           }
         }
@@ -589,5 +594,6 @@ class OpenAIApiServer(
     server?.stop(1000, 3000)
     server = null
     ApiServerStatus.setInferring(false)
+    ApiServerStatus.setRequesting(false)
   }
 }

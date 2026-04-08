@@ -21,6 +21,7 @@ class ApiServerViewModel @Inject constructor(
   val port = _port.asStateFlow()
 
   val isInferring = ApiServerStatus.isInferring
+  val isRequesting = ApiServerStatus.isRequesting
 
   fun startServer() {
     ApiServerService.start(context, _port.value)
