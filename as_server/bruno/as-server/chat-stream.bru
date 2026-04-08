@@ -1,0 +1,43 @@
+meta {
+  name: chat-stream
+  type: http
+  seq: 7
+}
+
+post {
+  url: http://{{MY_PHONE}}:8080/v1/chat/completions
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "model": "Gemma-4-E2B-it",
+    "stream": true,
+    "messages": [
+      {
+        "role": "system",
+        "content": "today is 2026-4-6"
+      },
+      {
+        "role": "user",
+        "content": "today is ?"
+      }
+    ]
+  }
+}
+
+tests {
+  test("should return success", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("should return message 'delta'", function () {
+    const body = res.getBody();
+
+    console.log("RAW:", body);
+
+    expect(body).to.include("delta");
+  });
+
+}

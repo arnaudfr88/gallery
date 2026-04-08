@@ -1,0 +1,26 @@
+meta {
+  name: chat-temperature
+  type: http
+  seq: 9
+}
+
+post {
+  url: http://{{MY_PHONE}}:8080/v1/chat/completions
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "model": "Gemma-4-E2B-it",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Give me 3 business ideas"
+      }
+    ],
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "seed": 999
+  }
+}

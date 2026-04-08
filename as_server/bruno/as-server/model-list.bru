@@ -1,0 +1,18 @@
+meta {
+  name: model-list
+  type: http
+  seq: 3
+}
+
+get {
+  url: http://{{MY_PHONE}}:8080/v1/models
+  body: none
+  auth: none
+}
+
+tests {
+  test("should return success", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+}

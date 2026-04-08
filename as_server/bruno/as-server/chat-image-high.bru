@@ -1,0 +1,51 @@
+meta {
+  name: chat-image-high
+  type: http
+  seq: 14
+}
+
+post {
+  url: http://{{MY_PHONE}}:8080/v1/chat/completions
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "model": "Gemma-4-E2B-it",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "What is in this image?"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "https://www.nasa.gov/wp-content/uploads/2026/01/55047179768-a83413e324-o.jpg?resize=2000,1333",
+              "detail": "high"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+
+tests {
+  test("should return success", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("should return message 'industrial'", function () {
+    const body = res.getBody();
+
+    expect(body).to.have.property("choices");
+    expect(body.choices[0]).to.have.property("message");
+    expect(body.choices[0].message).to.have.property("content");
+    expect(body.choices[0].message.content).to.contain("industrial");
+  });
+
+}

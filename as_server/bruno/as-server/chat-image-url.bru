@@ -1,0 +1,50 @@
+meta {
+  name: chat-image-url
+  type: http
+  seq: 10
+}
+
+post {
+  url: http://{{MY_PHONE}}:8080/v1/chat/completions
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "model": "Gemma-4-E2B-it",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "What is in this image?"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/D%C3%BClmen%2C_Hausd%C3%BClmen%2C_Felder_am_M%C3%BChlenweg_--_2025_--_0117.jpg/330px-D%C3%BClmen%2C_Hausd%C3%BClmen%2C_Felder_am_M%C3%BChlenweg_--_2025_--_0117.jpg"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+
+tests {
+  test("should return success", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("should return message 'land'", function () {
+    const body = res.getBody();
+
+    expect(body).to.have.property("choices");
+    expect(body.choices[0]).to.have.property("message");
+    expect(body.choices[0].message).to.have.property("content");
+    expect(body.choices[0].message.content).to.contain("land");
+  });
+
+}

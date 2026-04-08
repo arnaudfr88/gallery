@@ -1,0 +1,47 @@
+meta {
+  name: chat-assistant-conversation
+  type: http
+  seq: 5
+}
+
+post {
+  url: http://{{MY_PHONE}}:8080/v1/chat/completions
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "model": "Gemma-4-E2B-it",
+    "messages": [
+      {
+        "role": "user",
+        "content": "my name is x"
+      },
+      {
+        "role": "assistant",
+        "content": "Hello X! It's nice to meet you. How can I help you today? 😊"
+      },
+      {
+        "role": "user",
+        "content": "my name is ?"
+      }
+    ]
+  }
+}
+
+tests {
+  test("should return success", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("should return message 'X'", function () {
+    const body = res.getBody();
+
+    expect(body).to.have.property("choices");
+    expect(body.choices[0]).to.have.property("message");
+    expect(body.choices[0].message).to.have.property("content");
+    expect(body.choices[0].message.content).to.contain("X");
+  });
+
+}

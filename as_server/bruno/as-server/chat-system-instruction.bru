@@ -1,0 +1,42 @@
+meta {
+  name: chat-system-instruction
+  type: http
+  seq: 6
+}
+
+post {
+  url: http://{{MY_PHONE}}:8080/v1/chat/completions
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "model": "Gemma-4-E2B-it",
+    "messages": [
+      {
+        "role": "system",
+        "content": "today is 2026-4-6"
+      },
+      {
+        "role": "user",
+        "content": "today is ?(format yyyy-MM-dd)"
+      }
+    ]
+  }
+}
+
+tests {
+  test("should return success", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("should return message '2026-04-06'", function () {
+    const body = res.getBody();
+
+    expect(body).to.have.property("choices");
+    expect(body.choices[0]).to.have.property("message");
+    expect(body.choices[0].message).to.have.property("content");
+    expect(body.choices[0].message.content).to.contain("2026-04-06");
+  });
+}

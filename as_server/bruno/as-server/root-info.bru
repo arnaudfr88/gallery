@@ -1,0 +1,30 @@
+meta {
+  name: root-info
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://{{MY_PHONE}}:8080/
+  body: none
+  auth: none
+}
+
+tests {
+  test("should return success", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return message 'delta'", function () {
+    const body = res.getBody();
+  
+    console.log("RAW:", body);
+  
+    expect(body).to.have.property("name");
+    expect(body).to.have.property("version");
+    expect(body).to.have.property("model");
+    expect(body).to.have.property("is_inferring");
+    expect(body).to.have.property("request_count");
+  });
+  
+}

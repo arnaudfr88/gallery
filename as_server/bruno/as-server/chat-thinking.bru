@@ -1,0 +1,46 @@
+meta {
+  name: chat-thinking
+  type: http
+  seq: 8
+}
+
+post {
+  url: http://{{MY_PHONE}}:8080/v1/chat/completions
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "model": "Gemma-4-E2B-it",
+    "messages": [
+      {
+        "role": "system",
+        "content": "today is 2026-4-6"
+      },
+      {
+        "role": "user",
+        "content": "today is ?"
+      }
+    ],
+    "extra_body": {
+      "enable_thinking": true
+    }
+  }
+}
+
+tests {
+  test("should return success", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("should return message 'Thinking'", function () {
+    const body = res.getBody();
+
+    expect(body).to.have.property("choices");
+    expect(body.choices[0]).to.have.property("message");
+    expect(body.choices[0].message).to.have.property("content");
+    expect(body.choices[0].message.content).to.contain("Thinking");
+  });
+
+}
