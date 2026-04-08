@@ -33,6 +33,7 @@ class ApiServerService : Service() {
       val manager = modelManagerHolder.manager
       if (manager != null) {
         apiServer = OpenAIApiServer(
+          context = this,
           modelManager = manager,
           port = port,
         )

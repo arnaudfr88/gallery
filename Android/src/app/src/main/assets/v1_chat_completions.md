@@ -8,7 +8,7 @@ Supported features
 - ✅ Streaming
 - ❌ JSON mode
 - ❌ Reproducible outputs
-- ❌ Vision
+- ✅ Vision
 - ❌ Tools
 - ✅ Reasoning/thinking control (for thinking models)
 - ❌ Logprobs
@@ -17,10 +17,13 @@ Supported request fields
 - ✅ model
 - ✅ messages
   - ✅ Text content
-  - ❌ Image content
-    - ❌ Base64 encoded image
-    - ❌ Image URL
-  - ❌ Array of content parts
+  - ✅ Image content
+    - ✅ Base64 encoded image
+    - ✅ Image URL
+  - ✅ Audio content
+    - ✅ Base64 encoded wav
+    - ✅ Base64 encoded mp3
+  - ✅ Array of content parts
 - ❌ frequency_penalty
 - ❌ presence_penalty
 - ❌ response_format
