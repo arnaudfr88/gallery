@@ -26,6 +26,7 @@ import android.media.MediaFormat
 import android.util.Base64
 import android.util.Log
 import androidx.core.graphics.scale
+import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.server.dto.ChatCompletionChunk
@@ -37,6 +38,7 @@ import com.google.ai.edge.gallery.server.dto.Delta
 import com.google.ai.edge.gallery.server.dto.ImageDetail
 import com.google.ai.edge.gallery.server.dto.ModelListResponse
 import com.google.ai.edge.gallery.server.dto.ModelResponse
+import com.google.ai.edge.gallery.server.dto.ServerInfoResponse
 import com.google.ai.edge.gallery.service.ModelManagerAccessor
 import com.google.ai.edge.gallery.ui.apiserver.ApiServerStatus
 import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
@@ -100,7 +102,24 @@ class OpenAIApiServer(
 
         routing {
           // Health check
-          get("/") { call.respondText("AI Edge Gallery OpenAI API Server") }
+          get("/") {
+            val versionName = BuildConfig.VERSION_NAME
+
+            val initializedModel = modelManager.getDownloadedModelNames()
+              .mapNotNull { modelManager.getModelByName(it) }
+              .find { it.instance != null }
+              ?.name
+
+            call.respond(
+              ServerInfoResponse(
+                name = "AI Edge Gallery OpenAI API Server",
+                version = versionName,
+                model = initializedModel,
+                is_inferring = ApiServerStatus.isInferring.value,
+                request_count = ApiServerStatus.requestCount.value
+              )
+            )
+          }
 
           // List models
           get("/v1/models") {

@@ -293,15 +293,20 @@ fun ChatCompletionTaskScreen(
       }
 
       if (isRunning) {
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+        ApiEndpointCard(
+          title = "/",
+          assetPath = "api/root.md"
+        )
+        Spacer(modifier = Modifier.height(12.dp))
         ApiEndpointCard(
           title = "/v1/models",
-          assetPath = "v1_models.md"
+          assetPath = "api/v1_models.md"
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         ApiEndpointCard(
           title = "/v1/chat/completions",
-          assetPath = "v1_chat_completions.md"
+          assetPath = "api/v1_chat_completions.md"
         )
       }
     }
@@ -454,14 +459,14 @@ fun ApiEndpointCard(title: String, assetPath: String) {
     ) {
       Text(
         text = title,
-        style = MaterialTheme.typography.titleMedium,
+        style = MaterialTheme.typography.titleSmall,
         fontWeight = FontWeight.Bold
       )
       Spacer(modifier = Modifier.height(8.dp))
 
       val containerModifier = if (!expanded) {
         Modifier
-          .heightIn(max = 120.dp)
+          .heightIn(max = 100.dp)
           .clipToBounds() // Ensure markers from hidden content are clipped
           .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
           .drawWithCache {

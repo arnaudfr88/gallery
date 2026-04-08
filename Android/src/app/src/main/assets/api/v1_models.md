@@ -1,5 +1,5 @@
 ### List models
-List currently available models, only those that have been downloaded.
+List the downloaded models.
 
 **GET** `/v1/models`
 

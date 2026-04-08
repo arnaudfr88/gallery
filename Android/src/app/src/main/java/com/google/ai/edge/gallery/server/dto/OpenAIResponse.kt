@@ -5,6 +5,15 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class ServerInfoResponse(
+  val name: String,
+  val version: String,
+  val model: String?,
+  val is_inferring: Boolean,
+  val request_count: Int,
+)
+
+@Serializable
 @OptIn(ExperimentalSerializationApi::class)
 data class ChatCompletionResponse(
   val id: String,

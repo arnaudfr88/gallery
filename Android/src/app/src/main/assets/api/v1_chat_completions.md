@@ -1,5 +1,5 @@
 ### Create chat completion
-Creates a model response for the given chat conversation.
+Creates response for the given chat conversation.
 
 **POST** `/v1/chat/completions`
 
