@@ -87,6 +87,9 @@ message Settings {
 
   // Allowlist base URL
   optional string allowlist_base_url = 13;
+
+  // HuggingFace download endpoint
+  optional string huggingface_endpoint = 15;
 }
 
 message UserData {

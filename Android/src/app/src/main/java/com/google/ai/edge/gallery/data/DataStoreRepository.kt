@@ -125,6 +125,10 @@ interface DataStoreRepository {
   fun readServerHost(): String
 
   fun saveServerHost(host: String)
+
+  fun readHuggingFaceEndpoint(): String
+
+  fun saveHuggingFaceEndpoint(endpoint: String)
 }
 
 /** Repository for managing data using Proto DataStore. */
@@ -500,6 +504,19 @@ class DefaultDataStoreRepository(
   override fun saveServerPort(port: Int) {
     runBlocking {
       dataStore.updateData { settings -> settings.toBuilder().setServerPort(port).build() }
+    }
+  }
+
+  override fun readHuggingFaceEndpoint(): String {
+    return runBlocking {
+      val settings = dataStore.data.first()
+      settings.huggingfaceEndpoint
+    }
+  }
+
+  override fun saveHuggingFaceEndpoint(endpoint: String) {
+    runBlocking {
+      dataStore.updateData { settings -> settings.toBuilder().setHuggingfaceEndpoint(endpoint).build() }
     }
   }
 }

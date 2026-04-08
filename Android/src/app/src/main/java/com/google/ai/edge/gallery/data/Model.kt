@@ -122,7 +122,7 @@ data class Model(
    * If the url is from HuggingFace, we will automatically prompt users to fetch access token if the
    * model is gated.
    */
-  val url: String = "",
+  var url: String = "",
 
   /**
    * The size of the model file in bytes.

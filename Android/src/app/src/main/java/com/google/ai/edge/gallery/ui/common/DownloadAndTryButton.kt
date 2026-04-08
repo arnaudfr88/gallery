@@ -167,6 +167,14 @@ fun DownloadAndTryButton(
   // Function to kick off download.
   val startDownload: (accessToken: String?) -> Unit = { accessToken ->
     model.accessToken = accessToken
+
+    if (model.url.startsWith("https://huggingface.co")) {
+      val hfEndpoint = modelManagerViewModel.dataStoreRepository.readHuggingFaceEndpoint()
+      if (hfEndpoint.isNotEmpty()) {
+        model.url = model.url.replace("https://huggingface.co", hfEndpoint)
+      }
+    }
+
     checkNotificationPermissionAndStartDownload(
       context = context,
       launcher = permissionLauncher,
