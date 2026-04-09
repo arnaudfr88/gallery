@@ -10,19 +10,8 @@ on:
         required: true
         type: string
   push:
-    branches:
-      - main
-      - support/as-server
     tags:
       - '*'
-    paths:
-      - 'Android/**'
-  pull_request:
-    branches:
-      - main
-      - support/as-server
-    paths:
-      - 'Android/**'
 
 permissions:
   contents: write
