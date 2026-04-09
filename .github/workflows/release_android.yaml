@@ -1,0 +1,89 @@
+name: Release Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Release tag name (e.g. 1.0.11, 1.0.11.beta). If it does not exist yet, it
+          will be created on the commit you selected for this run (same commit as the APK build).
+        required: true
+        type: string
+  push:
+    branches:
+      - main
+      - support/as-server
+    tags:
+      - '*'
+    paths:
+      - 'Android/**'
+  pull_request:
+    branches:
+      - main
+      - support/as-server
+    paths:
+      - 'Android/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build_apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./Android/src
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0 platform-tools'
+
+      - name: Build release APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK artifact
+        if: >
+          github.event_name == 'workflow_dispatch'
+          || (github.event_name == 'push' && github.ref_type == 'tag')
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-apk
+          path: ./Android/src/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build_apk
+    if: >
+      github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'push' && github.ref_type == 'tag')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: release-apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          files: '*.apk'
+          generate_release_notes: true
+          make_latest: true
