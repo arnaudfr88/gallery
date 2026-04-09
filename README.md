@@ -21,6 +21,11 @@ For users without Google Play access, install the apk from the [**latest release
 
 ## App Preview
 
+<img height="853" alt="Snipaste_2026-04-09_19-00-07" src="https://github.com/user-attachments/assets/7bddeee8-b6a9-410f-9c4b-b677dde7f198" />
+<img height="853" alt="Snipaste_2026-04-09_19-00-40" src="https://github.com/user-attachments/assets/fcd0fdc2-e4bc-403f-aab0-a7d05b2b653e" />
+<img height="853" alt="Snipaste_2026-04-09_19-00-52" src="https://github.com/user-attachments/assets/d8c9a65a-1d3a-4b54-b891-0bb029fe6369" />
+<img height="853" alt="Snipaste_2026-04-09_19-07-51" src="https://github.com/user-attachments/assets/e14794b7-34bd-4113-93e1-2460ccd20d01" />
+
 <img width="480" alt="01" src="https://github.com/user-attachments/assets/a809ad78-aef4-4169-91ee-de7213cbb3bd" />
 <img width="480" alt="02" src="https://github.com/user-attachments/assets/1effd10d-f45a-4f7b-9435-f50f1bdd36b6" />
 <img width="480" alt="03" src="https://github.com/user-attachments/assets/e5089e41-2c18-4fbe-9011-ebe9e5a02044" />
@@ -31,6 +36,8 @@ For users without Google Play access, install the apk from the [**latest release
 <img width="480" alt="08" src="https://github.com/user-attachments/assets/061564ed-030f-4630-810b-13a7863fce4c" />
 
 ## ✨ Core Features
+
+* **As Server**: Run an **OpenAI-compatible HTTP API** from the Android app so tools on the same LAN can call Chat Completions and model listing against your on-device LLM (`/v1/chat/completions`, `/v1/models`). Implementation overview, package layout, and the Bruno test collection are in the [**As Server** guide](as_server/README.md).
 
 * **Agent Skills**: Transform your LLM from a conversationalist into a proactive assistant. Use the Agent Skills tile to augment model capabilities with tools like Wikipedia for fact-grounding, interactive maps, and rich visual summary cards. You can even load modular skills from a URL or browse community contributions on GitHub Discussions.
 
