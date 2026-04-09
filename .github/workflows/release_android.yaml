@@ -44,9 +44,6 @@ jobs:
           ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK artifact
-        if: >
-          github.event_name == 'workflow_dispatch'
-          || (github.event_name == 'push' && github.ref_type == 'tag')
         uses: actions/upload-artifact@v7
         with:
           name: release-apk
@@ -56,12 +53,7 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: build_apk
-    if: >
-      github.event_name == 'workflow_dispatch'
-      || (github.event_name == 'push' && github.ref_type == 'tag')
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Download APK
         uses: actions/download-artifact@v4
