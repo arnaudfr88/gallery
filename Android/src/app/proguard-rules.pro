@@ -15,6 +15,9 @@
 -keep class com.google.ai.edge.gallery.ui.home.ReleaseInfo { *; }
 -keep class com.google.ai.edge.gallery.data.** { *; }
 
+# for litertlm JNI
+-keep class com.google.ai.edge.litertlm.** { *; }
+
 # Kotlin metadata (important for reflective access).
 -keep class kotlin.Metadata { *; }
 
