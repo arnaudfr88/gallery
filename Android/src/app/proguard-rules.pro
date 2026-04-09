@@ -11,6 +11,10 @@
 # Keep inner class metadata.
 -keepattributes InnerClasses
 
+# for Gson
+-keep class com.google.ai.edge.gallery.ui.home.ReleaseInfo { *; }
+-keep class com.google.ai.edge.gallery.data.** { *; }
+
 # Kotlin metadata (important for reflective access).
 -keep class kotlin.Metadata { *; }
 
