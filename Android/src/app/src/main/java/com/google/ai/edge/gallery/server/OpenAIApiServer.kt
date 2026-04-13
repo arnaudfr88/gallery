@@ -30,11 +30,16 @@ import com.google.ai.edge.gallery.BuildConfig
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.SAMPLE_RATE
 import com.google.ai.edge.gallery.server.dto.ChatCompletionChunk
+import com.google.ai.edge.gallery.server.dto.ChatCompletionFunctionTool
+import com.google.ai.edge.gallery.server.dto.ChatCompletionMessage
+import com.google.ai.edge.gallery.server.dto.ChatCompletionMessageFunctionToolCall
+import com.google.ai.edge.gallery.server.dto.ChatCompletionMessageParam
+import com.google.ai.edge.gallery.server.dto.ChatCompletionMessageToolCall
 import com.google.ai.edge.gallery.server.dto.ChatCompletionRequest
 import com.google.ai.edge.gallery.server.dto.ChatCompletionResponse
-import com.google.ai.edge.gallery.server.dto.ChatMessage
 import com.google.ai.edge.gallery.server.dto.Choice
 import com.google.ai.edge.gallery.server.dto.Delta
+import com.google.ai.edge.gallery.server.dto.FunctionCall
 import com.google.ai.edge.gallery.server.dto.ImageDetail
 import com.google.ai.edge.gallery.server.dto.ModelListResponse
 import com.google.ai.edge.gallery.server.dto.ModelResponse
@@ -45,6 +50,9 @@ import com.google.ai.edge.gallery.ui.llmchat.LlmChatModelHelper
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.OpenApiTool
+import com.google.ai.edge.litertlm.ToolCall
+import com.google.ai.edge.litertlm.tool
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -56,7 +64,6 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondText
 import io.ktor.server.response.respondTextWriter
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -79,6 +86,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -150,18 +159,26 @@ class OpenAIApiServer(
                 return@post
               }
 
-              val lastUserMessage = request.messages.lastOrNull { it.role == "user" }
-              val userInput = lastUserMessage?.textContent ?: ""
+              // Process last user message or tools messages
+              val lastMessage = request.messages.lastOrNull()
+              var userInput = lastMessage?.textContent ?: ""
 
               val images = mutableListOf<Bitmap>()
               val audioClips = mutableListOf<ByteArray>()
-              if (lastUserMessage != null) {
-                val content = lastUserMessage.content
+              val toolResponses = mutableMapOf<String, String>()
+
+              if (lastMessage != null && lastMessage.role == "user") {
+                // Parse multimedia content from user message
+                val content = lastMessage.content
                 if (content is JsonArray) {
                   for (element in content) {
                     if (element is JsonObject) {
                       val type = element["type"]?.jsonPrimitive?.content
                       when (type) {
+                        "text" -> {
+                          userInput = element["text"]?.jsonPrimitive?.content ?: ""
+                        }
+
                         "image_url" -> {
                           if (model.llmSupportImage) {
                             val imageUrlObj = element["image_url"] as? JsonObject
@@ -183,6 +200,7 @@ class OpenAIApiServer(
                             }
                           }
                         }
+
                         "input_audio" -> {
                           if (model.llmSupportAudio) {
                             val inputAudioObj = element["input_audio"] as? JsonObject
@@ -200,10 +218,47 @@ class OpenAIApiServer(
                     }
                   }
                 }
-              }
+              } else if (lastMessage != null && lastMessage.role == "tool") {
+                // TODO The model seems unable to see toolResponses(Content.ToolResponse),
+                //  so the result is temporarily appended to Contents.
+                userInput = "After the tool is invoked, it can now answer the user's question. " +
+                  "Below is the function's return value.\n"
+                // Extract all tool responses from the last assistant tool_calls message
+                val lastAssistantToolIndex =
+                  request.messages.indexOfLast { it.role == "assistant" && it.tool_calls != null }
+                if (lastAssistantToolIndex != -1) {
+                  val assistantToolMsg = request.messages[lastAssistantToolIndex]
+                  val toolCalls = assistantToolMsg.tool_calls ?: emptyList()
 
-              val requestId = "chatcmpl-${UUID.randomUUID()}"
-              val created = System.currentTimeMillis() / 1000
+                  // tool_call_id -> function.name
+                  val toolCallMap: Map<String, String> =
+                    toolCalls.associate { tc ->
+                      when (tc) {
+                        is ChatCompletionMessageFunctionToolCall ->
+                          tc.id to tc.function.name
+                      }
+                    }
+
+                  // collect tool responses
+                  for (i in lastAssistantToolIndex + 1 until request.messages.size) {
+                    val msg = request.messages[i]
+                    if (msg.role != "tool") continue
+
+                    val toolCallId = msg.tool_call_id
+                    val functionName = toolCallMap[toolCallId]
+
+                    if (functionName != null && msg.textContent.isNotEmpty()) {
+                      // TODO I'm not quite sure whether the name in Content.ToolResponse is
+                      //  the function name or the call ID.
+                      //  I've tried both, but the model doesn't seem to show any results.
+                      toolResponses["${toolCallId}:${functionName}"] = msg.textContent
+                      // TODO The model seems unable to see toolResponses(Content.ToolResponse),
+                      //  so the result is temporarily appended to Contents.
+                      userInput = "${userInput}\n${toolCallId}:${functionName}: ${msg.textContent}\n"
+                    }
+                  }
+                }
+              }
 
               val allowThinking = model.llmSupportThinking
               val extraBodyEnableThinking =
@@ -217,34 +272,49 @@ class OpenAIApiServer(
                     ))
               val extraContext = if (enableThinking) mapOf("enable_thinking" to "true") else null
 
+              // Process tools
+              val tools = request.tools?.map { tool ->
+                when (tool) {
+                  is ChatCompletionFunctionTool -> {
+                    val definition = tool.function
+                    tool(object : OpenApiTool {
+                      override fun getToolDescriptionJsonString(): String {
+                        val toolObj = JsonObject(mapOf(
+                          "name" to JsonPrimitive(definition.name),
+                          "description" to JsonPrimitive(definition.description ?: ""),
+                          "parameters" to (definition.parameters ?: JsonObject(emptyMap()))
+                        ))
+                        return json.encodeToString(toolObj)
+                      }
+                      override fun execute(paramsJsonString: String): String {
+                        throw NotImplementedError("The API server currently does not support server-side tool execution. Tools are meant to be handled by the client or engine orchestration.")
+                      }
+                    })
+                  }
+                }
+              } ?: listOf()
+
+              val requestId = "chatcmpl-${UUID.randomUUID()}"
+              val created = System.currentTimeMillis() / 1000
+
               if (request.stream) {
                 call.respondTextWriter(contentType = ContentType.Text.EventStream) {
                   val channel = Channel<String>(Channel.BUFFERED)
+                  val toolCallsChannel = Channel<List<ToolCall>>(Channel.BUFFERED)
                   val inferenceDone = CompletableDeferred<Unit>()
 
                   CoroutineScope(Dispatchers.Default).launch {
                     inferenceMutex.withLock {
-                      val history = request.messages.dropLast(1)
-                      val systemMessage = request.messages.firstOrNull { it.role == "system" }
-                      val initialMessages =
-                        history
-                          .filter { it.role != "system" }
-                          .map {
-                            when (it.role) {
-                              "user" -> Message.user(it.textContent)
-                              "assistant" -> Message.model(it.textContent)
-                              else -> Message.user(it.textContent)
-                            }
-                          }
+                      val initialMessages = buildInitialMessages(request.messages)
 
                       LlmChatModelHelper.newConversation(
                         model = model,
                         supportImage = model.llmSupportImage,
                         supportAudio = model.llmSupportAudio,
                         systemInstruction =
-                          systemMessage?.let { Contents.of(Content.Text(it.textContent)) },
+                          request.messages.firstOrNull { it.role == "system" }?.let { Contents.of(Content.Text(it.textContent)) },
                         initialMessages = initialMessages,
-                        tools = listOf(),
+                        tools = tools,
                         enableConversationConstrainedDecoding = false,
                         temperature = request.temperature,
                         topP = request.top_p,
@@ -256,6 +326,9 @@ class OpenAIApiServer(
                       LlmChatModelHelper.runInference(
                         model = model,
                         input = userInput,
+                        toolCallListener = { toolCalls ->
+                          toolCallsChannel.trySend(toolCalls)
+                        },
                         resultListener = { partial, done, thinking ->
                           if (partial.startsWith("<ctrl")) {
                             // Do nothing. Ignore control tokens.
@@ -282,6 +355,7 @@ class OpenAIApiServer(
                         },
                         images = images,
                         audioClips = audioClips,
+                        toolResponses = toolResponses,
                         extraContext = extraContext,
                       )
 
@@ -291,6 +365,7 @@ class OpenAIApiServer(
                         Log.e(TAG, "Inference error", e)
                       } finally {
                         channel.close()
+                        toolCallsChannel.close()
                       }
                     }
                   }
@@ -319,13 +394,39 @@ class OpenAIApiServer(
                     flush()
                   }
 
+                  // Send tool calls if any
+                  var hasToolCalls = false
+                  for (toolCalls in toolCallsChannel) {
+                     hasToolCalls = true
+                     val toolCallsDto = toolCalls.map { tc ->
+                        ChatCompletionMessageFunctionToolCall(
+                          id = "call_${UUID.randomUUID()}",
+                          function = FunctionCall(
+                            name = tc.name,
+                            arguments = json.encodeToString(tc.arguments.mapValues { it.value.toJsonElement() })
+                          )
+                        )
+                     }
+                     val chunk = ChatCompletionChunk(
+                       id = requestId,
+                       created = created,
+                       model = request.model,
+                       choices = listOf(Choice(index = 0, delta = Delta(tool_calls = toolCallsDto), finish_reason = "tool_calls"))
+                     )
+                     write("data: ${json.encodeToString(chunk)}\n\n")
+                     flush()
+                  }
+
                   // Send finish reason
                   val doneChunk =
                     ChatCompletionChunk(
                       id = requestId,
                       created = created,
                       model = request.model,
-                      choices = listOf(Choice(index = 0, delta = Delta(), finish_reason = "stop")),
+                      choices = listOf(Choice(
+                        index = 0,
+                        delta = Delta(),
+                        finish_reason = if (hasToolCalls) "tool_calls" else "stop")),
                     )
                   write("data: ${json.encodeToString(doneChunk)}\n\n")
                   write("data: [DONE]\n\n")
@@ -334,28 +435,19 @@ class OpenAIApiServer(
               } else {
                 inferenceMutex.withLock {
                   val fullResponse = CompletableDeferred<String>()
+                  val toolCallsResult = mutableListOf<ChatCompletionMessageToolCall>()
                   val buffer = StringBuilder()
 
-                  val history = request.messages.dropLast(1)
-                  val systemMessage = request.messages.firstOrNull { it.role == "system" }
-                  val initialMessages =
-                    history
-                      .filter { it.role != "system" }
-                      .map {
-                        when (it.role) {
-                          "user" -> Message.user(it.textContent)
-                          "assistant" -> Message.model(it.textContent)
-                          else -> Message.user(it.textContent)
-                        }
-                      }
+                  val initialMessages = buildInitialMessages(request.messages)
+                  var contents = buildContents(request.messages)
 
                   LlmChatModelHelper.newConversation(
                     model = model,
                     supportImage = model.llmSupportImage,
                     supportAudio = model.llmSupportAudio,
-                    systemInstruction = systemMessage?.let { Contents.of(Content.Text(it.textContent)) },
+                    systemInstruction = request.messages.firstOrNull { it.role == "system" }?.let { Contents.of(Content.Text(it.textContent)) },
                     initialMessages = initialMessages,
-                    tools = listOf(),
+                    tools = tools,
                     enableConversationConstrainedDecoding = false,
                     temperature = request.temperature,
                     topP = request.top_p,
@@ -367,6 +459,18 @@ class OpenAIApiServer(
                   LlmChatModelHelper.runInference(
                     model = model,
                     input = userInput,
+                    toolCallListener = { toolCalls ->
+                       val mapped = toolCalls.map { tc ->
+                         ChatCompletionMessageFunctionToolCall(
+                           id = "call_${UUID.randomUUID()}",
+                           function = FunctionCall(
+                             name = tc.name,
+                             arguments = json.encodeToString(tc.arguments.mapValues { it.value.toJsonElement() })
+                           )
+                         )
+                       }
+                       toolCallsResult.addAll(mapped)
+                    },
                     resultListener = { partial, done, thinking ->
                       if (partial.startsWith("<ctrl")) {
                         // Do nothing. Ignore control tokens.
@@ -388,6 +492,7 @@ class OpenAIApiServer(
                     },
                     images = images,
                     audioClips = audioClips,
+                    toolResponses = toolResponses,
                     extraContext = extraContext,
                   )
 
@@ -403,8 +508,12 @@ class OpenAIApiServer(
                             Choice(
                               index = 0,
                               message =
-                                ChatMessage(role = "assistant", content = JsonPrimitive(content)),
-                              finish_reason = "stop",
+                                ChatCompletionMessage(
+                                  role = "assistant",
+                                  content = if (content.isEmpty() && toolCallsResult.isNotEmpty()) null else content,
+                                  tool_calls = if (toolCallsResult.isEmpty()) null else toolCallsResult
+                                ),
+                              finish_reason = if (toolCallsResult.isNotEmpty()) "tool_calls" else "stop",
                             )
                           ),
                       )
@@ -423,6 +532,47 @@ class OpenAIApiServer(
           }
         }
       }.start(wait = false)
+  }
+
+  private fun buildContents(messages: List<ChatCompletionMessageParam>): MutableList<Content> {
+    return mutableListOf(messages.last())
+      .filter { it.role != "system" }
+      .map {
+        when (it.role) {
+          "tool" -> {
+            Content.ToolResponse("get_weather", it.textContent)
+          }
+          else -> Content.Text(it.textContent)
+        }
+      }
+      .toMutableList()
+  }
+
+  private fun buildInitialMessages(messages: List<ChatCompletionMessageParam>): List<Message> {
+    var history = messages.dropLast(1)
+    return history
+      .filter { it.role != "system" }
+      .map {
+        when (it.role) {
+          "user" -> Message.user(it.textContent)
+          "assistant" -> {
+            val toolCalls = it.tool_calls?.map { tc ->
+              when (tc) {
+                is ChatCompletionMessageFunctionToolCall -> {
+                  val element = json.decodeFromString<JsonElement>(tc.function.arguments)
+                  ToolCall(
+                    name = tc.function.name,
+                    arguments = element.toAny() as Map<String, Any?>
+                  )
+                }
+              }
+            } ?: emptyList()
+            Message.model(contents = Contents.of(Content.Text(it.textContent)), toolCalls = toolCalls)
+          }
+          "tool" -> Message.tool(Contents.of(Content.Text(it.textContent)))
+          else -> Message.user(it.textContent)
+        }
+      }
   }
 
   private suspend fun loadBitmap(url: String): Bitmap? =
@@ -630,5 +780,46 @@ class OpenAIApiServer(
     server?.stop(1000, 3000)
     server = null
     ApiServerStatus.reset()
+  }
+
+  private fun Any?.toJsonElement(): JsonElement {
+    return when (this) {
+      null -> JsonNull
+      is Number -> JsonPrimitive(this)
+      is Boolean -> JsonPrimitive(this)
+      is String -> JsonPrimitive(this)
+      is Map<*, *> -> {
+        val jsonObject = mutableMapOf<String, JsonElement>()
+        for ((key, value) in this) {
+          jsonObject[key.toString()] = value.toJsonElement()
+        }
+        JsonObject(jsonObject)
+      }
+      is Iterable<*> -> {
+        val jsonArray = mutableListOf<JsonElement>()
+        for (value in this) {
+          jsonArray.add(value.toJsonElement())
+        }
+        JsonArray(jsonArray)
+      }
+      else -> JsonPrimitive(this.toString())
+    }
+  }
+}
+
+fun JsonElement.toAny(): Any? {
+  return when (this) {
+    is JsonNull -> null
+    is JsonPrimitive -> {
+      when {
+        isString -> content
+        content.equals("true", true) -> true
+        content.equals("false", true) -> false
+        content.contains('.') -> content.toDoubleOrNull()
+        else -> content.toIntOrNull() ?: content
+      }
+    }
+    is JsonObject -> mapValues { it.value.toAny() }
+    is JsonArray -> map { it.toAny() }
   }
 }

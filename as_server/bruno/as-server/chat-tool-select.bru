@@ -1,0 +1,67 @@
+meta {
+  name: chat-tool-select
+  type: http
+  seq: 17
+}
+
+post {
+  url: http://{{MY_PHONE}}:8080/v1/chat/completions
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "model": "Gemma-4-E2B-it",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is the weather like in Boston today?"
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get the current weather in a given location",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city and state, e.g. San Francisco, CA"
+              },
+              "unit": {
+                "type": "string",
+                "enum": ["celsius", "fahrenheit"]
+              }
+            },
+            "required": ["location"]
+          }
+        }
+      }
+    ]
+  }
+}
+
+tests {
+  test("should return success", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return message 'get_weather' 'Boston'", function () {
+    const body = res.getBody();
+  
+    expect(body).to.have.property("choices");
+    expect(body.choices[0]).to.have.property("message");
+    expect(body.choices[0].message).to.have.property("tool_calls");
+    expect(body.choices[0].message.tool_calls[0]).to.have.property("type");
+    expect(body.choices[0].message.tool_calls[0].type).to.contain("function");
+    expect(body.choices[0].message.tool_calls[0]).to.have.property("function");
+    expect(body.choices[0].message.tool_calls[0].function).to.have.property("name");
+    expect(body.choices[0].message.tool_calls[0].function.name).to.contain("get_weather");
+    expect(body.choices[0].message.tool_calls[0].function).to.have.property("arguments");
+    expect(body.choices[0].message.tool_calls[0].function.arguments).to.contain("Boston");
+  });
+}

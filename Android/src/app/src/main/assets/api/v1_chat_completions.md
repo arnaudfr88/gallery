@@ -9,7 +9,7 @@ Supported features
 - ❌ JSON mode
 - ❌ Reproducible outputs
 - ✅ Vision
-- ❌ Tools
+- ✅ Tools
 - ✅ Reasoning/thinking control (for thinking models)
 - ❌ Logprobs
 

@@ -19,7 +19,9 @@ package com.google.ai.edge.gallery.runtime
 import android.content.Context
 import android.graphics.Bitmap
 import com.google.ai.edge.gallery.data.Model
+import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.ToolCall
 import com.google.ai.edge.litertlm.ToolProvider
 import kotlinx.coroutines.CoroutineScope
 
@@ -27,6 +29,9 @@ typealias ResultListener =
   (partialResult: String, done: Boolean, partialThinkingResult: String?) -> Unit
 
 typealias CleanUpListener = () -> Unit
+
+typealias ToolCallListener =
+    (toolCalls: List<ToolCall>) -> Unit
 
 /**
  * Base interface for all LLM runtimes. It defines the foundational operations needed to initialize,
@@ -58,6 +63,7 @@ interface LlmModelHelper {
     tools: List<ToolProvider> = listOf(),
     enableConversationConstrainedDecoding: Boolean = false,
     coroutineScope: CoroutineScope? = null,
+    automaticToolCalling: Boolean = true,
   )
 
   /**
@@ -110,6 +116,8 @@ interface LlmModelHelper {
     audioClips: List<ByteArray> = listOf(),
     coroutineScope: CoroutineScope? = null,
     extraContext: Map<String, String>? = null,
+    toolCallListener: ToolCallListener? = null,
+    toolResponses: Map<String, Any?> = mapOf(),
   )
 
   /**

@@ -71,6 +71,7 @@ fun LlmChatModelHelper.newConversation(
           systemInstruction = systemInstruction,
           initialMessages = initialMessages,
           tools = tools,
+          automaticToolCalling = false,
         )
       )
     ExperimentalFlags.enableConversationConstrainedDecoding = false
