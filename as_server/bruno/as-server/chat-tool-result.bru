@@ -1,0 +1,99 @@
+meta {
+  name: chat-tool-result
+  type: http
+  seq: 18
+}
+
+post {
+  url: http://{{MY_PHONE}}:8080/v1/chat/completions
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "model": "Gemma-4-E2B-it",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What's the weather like in Boston and San Francisco today?"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "type": "function",
+            "id": "call_1",
+            "function": {
+              "name": "get_weather",
+              "arguments": "{\"location\":\"Boston, MA\"}"
+            }
+          },
+          {
+            "type": "function",
+            "id": "call_2",
+            "function": {
+              "name": "get_weather",
+              "arguments": "{\"location\":\"San Francisco, CA\"}"
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_1",
+        "name": "get_weather",
+        "content": "It's raining in Boston."
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_2",
+        "name": "get_weather",
+        "content": "It's sunny in San Francisco."
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get the current weather in a given location",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city and state, e.g. San Francisco, CA"
+              },
+              "unit": {
+                "type": "string",
+                "enum": ["celsius", "fahrenheit"]
+              }
+            },
+            "required": ["location"]
+          }
+        }
+      }
+    ]
+  }
+}
+
+tests {
+  test("should return success", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("should return message 'raining' 'Boston' 'sunny' 'Francisco'", function () {
+    const body = res.getBody();
+  
+    expect(body).to.have.property("choices");
+    expect(body.choices[0]).to.have.property("message");
+    expect(body.choices[0].message).to.have.property("content");
+    expect(body.choices[0].message.content).to.contain("raining");
+    expect(body.choices[0].message.content).to.contain("Boston");
+    expect(body.choices[0].message.content).to.contain("sunny");
+    expect(body.choices[0].message.content).to.contain("Francisco");
+  });
+  
+}
