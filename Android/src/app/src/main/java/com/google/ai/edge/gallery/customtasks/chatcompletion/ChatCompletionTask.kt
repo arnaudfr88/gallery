@@ -66,6 +66,7 @@ class ChatCompletionTask @Inject constructor() : CustomTask {
       supportAudio = model.llmSupportAudio,
       onDone = onDone,
       coroutineScope = coroutineScope,
+      automaticToolCalling = false,
     )
   }
 

@@ -5,23 +5,27 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 
 @Serializable
 data class ChatCompletionRequest(
   val model: String,
-  val messages: List<ChatMessage>,
+  val messages: List<ChatCompletionMessageParam>,
   val stream: Boolean = false,
   val temperature: Float? = null,
   val top_p: Float? = null,
   val seed: Int? = null,
+  val tools: List<ChatCompletionTool>? = null,
   val extra_body: Map<String, JsonElement>? = null,
 )
 
 @Serializable
-data class ChatMessage(
-  val role: String,   // "system" | "user" | "assistant"
-  val content: JsonElement,
+data class ChatCompletionMessageParam(
+  val role: String,   // "system" | "user" | "assistant" | "tool"
+  val content: JsonElement? = null,
+  val tool_calls: List<ChatCompletionMessageToolCall>? = null,  // when role is "assistant"
+  val tool_call_id: String? = null, // when role is "tool"
 ) {
   /**
    * Returns the text content if it's a simple string, or concatenates all text parts
@@ -43,32 +47,28 @@ data class ChatMessage(
           }
         }.joinToString("\n")
       }
-      else -> content.jsonPrimitive.content
+      is JsonPrimitive -> content.jsonPrimitive.content
+      else -> ""
     }
 }
 
 @Serializable
 sealed class ContentPart {
-  abstract val type: String
-
   @Serializable
   @SerialName("text")
   data class TextContentPart(
-    override val type: String = "text",
     val text: String
   ) : ContentPart()
 
   @Serializable
   @SerialName("image_url")
   data class ImageUrlContentPart(
-    override val type: String = "image_url",
     @SerialName("image_url") val imageUrl: ImageUrl
   ) : ContentPart()
 
   @Serializable
   @SerialName("input_audio")
   data class InputAudioContentPart(
-    override val type: String = "input_audio",
     @SerialName("input_audio") val inputAudio: InputAudio
   ) : ContentPart()
 
@@ -91,3 +91,20 @@ enum class ImageDetail {
     @SerialName("auto") AUTO,
     @SerialName("high") HIGH
 }
+
+@Serializable
+sealed class ChatCompletionTool {
+}
+
+@Serializable
+@SerialName("function")
+data class ChatCompletionFunctionTool(
+  val function: FunctionDefinition
+) : ChatCompletionTool()
+
+@Serializable
+data class FunctionDefinition(
+  val name: String,
+  val description: String? = null,
+  val parameters: JsonObject? = null,
+)

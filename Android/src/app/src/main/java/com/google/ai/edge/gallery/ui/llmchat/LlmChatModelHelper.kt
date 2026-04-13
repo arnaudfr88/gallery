@@ -31,6 +31,7 @@ import com.google.ai.edge.gallery.data.Model
 import com.google.ai.edge.gallery.runtime.CleanUpListener
 import com.google.ai.edge.gallery.runtime.LlmModelHelper
 import com.google.ai.edge.gallery.runtime.ResultListener
+import com.google.ai.edge.gallery.runtime.ToolCallListener
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -67,6 +68,7 @@ object LlmChatModelHelper : LlmModelHelper {
     tools: List<ToolProvider>,
     enableConversationConstrainedDecoding: Boolean,
     coroutineScope: CoroutineScope?,
+    automaticToolCalling: Boolean,
   ) {
     // Prepare options.
     val maxTokens =
@@ -138,6 +140,7 @@ object LlmChatModelHelper : LlmModelHelper {
               },
             systemInstruction = systemInstruction,
             tools = tools,
+            automaticToolCalling = automaticToolCalling,
           )
         )
       ExperimentalFlags.enableConversationConstrainedDecoding = false
@@ -250,6 +253,8 @@ object LlmChatModelHelper : LlmModelHelper {
     audioClips: List<ByteArray>,
     coroutineScope: CoroutineScope?,
     extraContext: Map<String, String>?,
+    toolCallListener: ToolCallListener?,
+    toolResponses: Map<String, Any?>,
   ) {
     val instance = model.instance as? LlmModelInstance
     if (instance == null) {
@@ -271,6 +276,9 @@ object LlmChatModelHelper : LlmModelHelper {
     for (audioClip in audioClips) {
       contents.add(Content.AudioBytes(audioClip))
     }
+    for (toolResponse in toolResponses) {
+      contents.add(Content.ToolResponse(toolResponse.key, toolResponse.value))
+    }
     // add the text after image and audio for the accurate last token
     if (input.trim().isNotEmpty()) {
       contents.add(Content.Text(input))
@@ -280,6 +288,10 @@ object LlmChatModelHelper : LlmModelHelper {
       Contents.of(contents),
       object : MessageCallback {
         override fun onMessage(message: Message) {
+          if (message.toolCalls.isNotEmpty() && toolCallListener != null) {
+            toolCallListener(message.toolCalls)
+          }
+
           resultListener(message.toString(), false, message.channels["thought"])
         }
 

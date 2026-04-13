@@ -24,20 +24,6 @@ data class ChatCompletionResponse(
   val choices: List<Choice>,
 )
 
-@Serializable
-data class Choice(
-  val index: Int,
-  val message: ChatMessage? = null,      // For non-streaming
-  val delta: Delta? = null,              // For streaming
-  val finish_reason: String? = null,
-)
-
-@Serializable
-data class Delta(
-  val role: String? = null,
-  val content: String? = null,
-)
-
 // SSE Stream Chunk
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
@@ -48,6 +34,28 @@ data class ChatCompletionChunk(
   val created: Long,
   val model: String,
   val choices: List<Choice>,
+)
+
+@Serializable
+data class Choice(
+  val index: Int,
+  val message: ChatCompletionMessage? = null,      // For non-streaming
+  val delta: Delta? = null,              // For streaming
+  val finish_reason: String? = null,
+)
+
+@Serializable
+data class ChatCompletionMessage(
+  val role: String,
+  val content: String? = null,
+  val tool_calls: List<ChatCompletionMessageToolCall>? = null,
+)
+
+@Serializable
+data class Delta(
+  val role: String? = null,
+  val content: String? = null,
+  val tool_calls: List<ChatCompletionMessageToolCall>? = null,
 )
 
 @Serializable
