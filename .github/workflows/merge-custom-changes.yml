@@ -1,0 +1,73 @@
+name: Merge Custom Changes from Old Fork
+
+on:
+  workflow_dispatch:
+    inputs:
+      old_fork_ref:
+        description: 'Branch from old fork to merge'
+        required: true
+        default: 'main'
+      merge_strategy:
+        description: 'Merge strategy'
+        required: true
+        default: 'recursive'
+        type: choice
+        options:
+          - recursive
+          - resolve
+          - ours
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    name: Merge saketsaurav19/galleryServer changes
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add old fork remote
+        run: |
+          git remote add old-fork https://github.com/saketsaurav19/galleryServer.git
+          git fetch old-fork ${{ github.event.inputs.old_fork_ref || 'main' }}
+
+      - name: Create sync branch
+        run: git checkout -b merge/old-fork-${{ github.run_id }}
+
+      - name: Merge old fork
+        continue-on-error: true
+        id: merge
+        run: |
+          git merge -X ${{ github.event.inputs.merge_strategy || 'recursive' }} \
+            old-fork/${{ github.event.inputs.old_fork_ref || 'main' }} \
+            -m "Merge changes from saketsaurav19/galleryServer"
+
+      - name: Push and create PR
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            execSync('git push origin merge/old-fork-${{ github.run_id }}');
+            
+            const pr = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '[Sync] Merge OpenAI changes from saketsaurav19/galleryServer',
+              head: 'merge/old-fork-${{ github.run_id }}',
+              base: 'main',
+              body: '## 🔄 Merge Custom Changes\n\nIntégration des modifications du fork: **saketsaurav19/galleryServer**\n\n✅ OpenAI API support\n✅ Toutes les modifications custom'
+            });
+            
+            console.log(`PR: ${pr.data.html_url}`);
